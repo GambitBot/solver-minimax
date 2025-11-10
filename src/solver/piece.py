@@ -27,6 +27,24 @@ class ChessPiece:
 	__colour: PieceColour
 	__type: PieceType
 
+	__piecechar_map: dict[PieceType, str] = {
+		PieceType.KING: "k",
+		PieceType.QUEEN: "q",
+		PieceType.ROOK: "r",
+		PieceType.BISHOP: "b",
+		PieceType.KNIGHT: "n",
+		PieceType.PAWN: "p",
+	}
+
+	__piecestr_map: dict[PieceType, str] = {
+		PieceType.KING: "King",
+		PieceType.QUEEN: "Queen",
+		PieceType.ROOK: "Rook",
+		PieceType.BISHOP: "Bishop",
+		PieceType.KNIGHT: "Knight",
+		PieceType.PAWN: "Pawn",
+	}
+
 	def __init__(self, colour: PieceColour, type: PieceType):
 		"""Initialize a chess piece
 
@@ -50,14 +68,9 @@ class ChessPiece:
 		"""
 		return self.__type + self.__colour
 
-	__piecechar_map: dict[PieceType, str] = {
-		PieceType.KING: "k",
-		PieceType.QUEEN: "q",
-		PieceType.ROOK: "r",
-		PieceType.BISHOP: "b",
-		PieceType.KNIGHT: "n",
-		PieceType.PAWN: "p",
-	}
+	def __str__(self) -> str:
+		"""Returns a string representation of the piece."""
+		return self.__piecestr_map[self.__type]
 
 	def to_FEN(self) -> str:
 		"""Returns the FEN string representation of the piece"""
