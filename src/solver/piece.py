@@ -50,6 +50,22 @@ class ChessPiece:
 		"""
 		return self.__type + self.__colour
 
+	__piecechar_map: dict[PieceType, str] = {
+		PieceType.KING: "k",
+		PieceType.QUEEN: "q",
+		PieceType.ROOK: "r",
+		PieceType.BISHOP: "b",
+		PieceType.KNIGHT: "n",
+		PieceType.PAWN: "p",
+	}
+
+	def to_FEN(self) -> str:
+		"""Returns the FEN string representation of the piece"""
+		char = self.__piecechar_map[self.__type]
+		if self.__colour == PieceColour.WHITE:
+			char = char.upper()
+		return char
+
 	@property
 	def colour(self) -> PieceColour:
 		"""Piece colour"""
