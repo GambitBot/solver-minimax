@@ -27,6 +27,26 @@ class Board:
 		Not intended to be called directly."""
 		self.__pieces = [None] * 64
 
+	def __str__(self) -> str:
+		"""Returns a string representation of the board state"""
+		s = " |abcdefgh\n-+--------"
+		# Iterate over all pieces in the board with the index
+		for i, p in enumerate(self.__pieces):
+			rank = i // 8
+			file = i % 8
+			# If we're at the beginning of a rank, add the rank number to the string
+			if file == 0:
+				s += f"\n{8 - rank}|"
+			# If the space is empty, add a space
+			if p is None:
+				s += " "
+			else:
+				# If the space is not empty, add the FEN string representation
+				# of the piece occupying that space
+				s += p.to_FEN()
+
+		return s
+
 	@classmethod
 	def from_fen_string(cls, fen: str) -> "Board":
 		"""Initializes a board from an FEN string.
@@ -77,19 +97,21 @@ class Board:
 				piecetype = Board.__piecetype_map[char.casefold()]
 				piececolour = PieceColour.WHITE if char.isupper() else PieceColour.BLACK
 				# Add the piece to the board
-				cls.__pieces[(rank * 8) + file] = ChessPiece(piececolour, piecetype)
+				board.__pieces[(rank * 8) + file] = ChessPiece(piececolour, piecetype)
+				# Increment the file by one
+				file += 1
 
 		# Determine the active move
-		cls.__active_move = PieceColour.WHITE if fen_segments[1] == "w" else PieceColour.BLACK
+		board.__active_move = PieceColour.WHITE if fen_segments[1] == "w" else PieceColour.BLACK
 
 		# TODO: Implement castling checks
 
 		# Pending en-passant status
 		if fen_segments[3] != "-":
-			cls.__enpassant = ((8 - int(fen_segments[3][1])) * 8) + (ord(fen_segments[3][0]) - 97)
+			board.__enpassant = ((8 - int(fen_segments[3][1])) * 8) + (ord(fen_segments[3][0]) - 97)
 
 		# Halfmove clock and total moves
-		cls.__halfmove_clock = int(fen_segments[4])
-		cls.__move_count = int(fen_segments[5])
+		board.__halfmove_clock = int(fen_segments[4])
+		board.__move_count = int(fen_segments[5])
 
 		return board
