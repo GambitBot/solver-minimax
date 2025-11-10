@@ -42,5 +42,3 @@ jobs:
 
       - name: Run Ruff
         uses: astral-sh/ruff-action@v3
-        with:
-          src: "./src"
