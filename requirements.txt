@@ -1,0 +1,5 @@
+# This requirements file is only for development-specific dependencies.
+# All execution dependencies must go in the pyproject.toml file.
+
+# Install the local package in editable mode
+-e .

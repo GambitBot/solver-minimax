@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=70.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gambit-solver-minimax"
+version = "0.1.0"
+description = "Module for determining an optimal chess move from an input partial FEN string using a Minimax algorithm."
+readme = "README.md"
+requires-python = ">=3.11"
+classifiers = [
+	# Disable PyPi uploads (for now)
+	"Private :: Do Not Upload",
+	# License information
+	"License :: OSI Approved :: Mozilla Public License 2.0 (MPL 2.0)",
+]
+
+# Only add dependencies to run the package here
+dependencies = []
+
+[project.urls]
+Repository = "https://github.com/GambitBot/solver-minimax"
+
+[tool.pyright]
+typeCheckingMode = "standard"
+
+# Enable warnings for unnecessary imports
+reportUnusedImport = "warning"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 125
+
+[tool.ruff.lint]
+select = [
+	# Default rules
+	"E4",
+	"E7",
+	"E9",
+	"F",
+
+	# Code formatting
+	"I",   # isort
+	"PTH", # use pathlib
+	"W2",  # whitespace issues
+
+	# Docstrings
+	"D1",   # docstrings for public methods/classes
+	"D200", # unnecessary-multiline-docstring
+	"D419", # empty-docstring
+]
+
+[tool.ruff.format]
+indent-style = "tab"
