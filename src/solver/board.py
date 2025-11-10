@@ -20,12 +20,21 @@ class Board:
 	__halfmove_clock: int
 	__enpassant: int | None
 	__pieces: list[ChessPiece | None]
+	__piecetype_weights: dict[PieceType, int]
 
 	def __init__(self):
 		"""Initializes a new chess board.
 
 		Not intended to be called directly."""
 		self.__pieces = [None] * 64
+		self.__piecetype_weights = {
+			PieceType.KING: 100000,
+			PieceType.QUEEN: 500,
+			PieceType.ROOK: 300,
+			PieceType.BISHOP: 200,
+			PieceType.KNIGHT: 200,
+			PieceType.PAWN: 100,
+		}
 
 	def __str__(self) -> str:
 		"""Returns a string representation of the board state"""
@@ -115,3 +124,35 @@ class Board:
 		board.__move_count = int(fen_segments[5])
 
 		return board
+
+	def get_state_value(self, player: PieceColour | None = None) -> int:
+		"""Return the value of the current board state for the current move.
+
+		Parameters
+		----------
+		player : PieceColour (optional)
+			Player to evaluate weight for.
+			Defaults to player that moves next.
+
+		Returns
+		-------
+		int
+			Relative weight of the current board state.
+		"""
+		# Use the active player if not otherwise specified
+		if player is None:
+			player = self.__active_move
+		# Initialize the weight to zero
+		w = 0
+		# Iterate through all of the pieces on the board
+		for p in self.__pieces:
+			# Only proceed if a piece exists in this space
+			if p is not None:
+				# If the piece matches the player with the active move,
+				# increase the weight
+				if p.colour == player:
+					w += self.__piecetype_weights[p.type]
+				else:
+					# Otherwise, decrease the weight
+					w -= self.__piecetype_weights[p.type]
+		return w

@@ -9,3 +9,6 @@ print(FEN_STRING)
 b = Board.from_fen_string(FEN_STRING)
 print("Resulting board")
 print(b)
+print(f"Board state weight: {b.get_state_value()}")
+
+pass
