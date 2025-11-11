@@ -3,3 +3,5 @@
 
 # Install the local package in editable mode
 -e .
+
+numpy>=2.3,<2.4
