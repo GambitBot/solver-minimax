@@ -357,6 +357,62 @@ class Board:
 
 		return moves
 
+	def with_move(self, move: ChessMove) -> "Board":
+		"""Returns a new instance of the board with a given chess move applied.
+
+		Parameters
+		----------
+		move : ChessMove
+			Chess move to apply.
+
+		Returns
+		-------
+		Board
+			New board with chess move applied.
+		"""
+		# Initialize a new board
+		new_board = Board()
+		# Copy the existing board state to start
+		new_board.__board = self.__board.copy()
+		# Reverse the active move
+		if self.__active_move == PieceColour.WHITE:
+			new_board.__active_move = PieceColour.BLACK
+		else:
+			new_board.__active_move = PieceColour.WHITE
+
+		# Increment the move count
+		new_board.__move_count = self.__move_count + 1
+
+		# If a pawn was moved, or a piece was captured, reset the halfmove clock.
+		if ChessPiece.decode_piece(move.piece)[1] == PieceType.PAWN or move.capture is not None:
+			new_board.__halfmove_clock = 0
+		else:
+			# Otherwise, incremenet the clock by one.
+			new_board.__halfmove_clock = self.__halfmove_clock + 1
+
+		# Copy the reversed and initialized states of the board
+		new_board.__reversed = self.__reversed
+		new_board.__initialized = self.__initialized
+
+		# Apply the move
+		if move.capture is not None:
+			# If the move is capturing a piece, set the capture index to 0
+			new_board.__board[move.capture] = 0
+
+		# Move the piece to its new location
+		new_board.__board[move.idx_to] = move.piece
+		new_board.__board[move.idx_from] = 0
+
+		# If the piece was a pawn that moved two squares, set the new enpassant index
+		if ChessPiece.decode_piece(move.piece)[1] == PieceType.PAWN and abs(move.idx_to - move.idx_from) > 20:
+			# This will set the enpassant index to the halfway point between the two squares, which
+			# will correspond to the square that the pawn jumped over.
+			new_board.__enpassant = move.idx_from + ((move.idx_to - move.idx_from) // 2)
+		else:
+			new_board.__enpassant = None
+
+		return new_board
+
 	@staticmethod
 	def idx_from_rank_and_file(rank: int, file: int) -> int:
 		"""Converts a chess board rank and file to an array index for 0x88 indexing.
