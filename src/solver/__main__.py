@@ -14,9 +14,9 @@ print("Resulting board")
 print(b)
 print(f"Board state weight: {b.get_state_value()}")
 
-# print("Determining possible moves")
-# moves = b.get_moves()
-# for m in moves:
-# 	print(f"    {m}")
+print("Determining possible moves")
+moves = b.get_moves()
+for m in moves:
+	print(f"    {m}")
 
 pass

@@ -14,55 +14,6 @@ DEFAULT_PIECETYPE_WEIGHTS = {
 }
 
 
-def idx_to_square(idx: int) -> str:
-	"""Converts a board index into a readable square representation.
-
-	Parameters
-	----------
-	idx : int
-		Board index.
-
-	Returns
-	-------
-	str
-		String representation of square
-	"""
-	rank, file = idx_to_rank(idx)
-	return f"{chr(97 + file)}{8 - rank}"
-
-
-def idx_to_rank(idx: int) -> tuple[int, int]:
-	"""Converts a board index into a rank and file.
-
-	Parameters
-	----------
-	idx : int
-		Board index
-
-	Returns
-	-------
-	tuple[int, int]
-		Square rank and file
-	"""
-	return (idx // 8, idx % 8)
-
-
-def idx_on_board(idx: int) -> bool:
-	"""Determines if an index is valid for a board position.
-
-	Parameters
-	----------
-	idx : int
-		Board index
-
-	Returns
-	-------
-	bool
-		Index is valid
-	"""
-	return idx >= 0 and idx < 64
-
-
 class ChessMove:
 	"""Representation of a chess move."""
 
@@ -93,7 +44,7 @@ class ChessMove:
 
 	def __str__(self) -> str:
 		"""Return a string representation of a move."""
-		s = f"Piece: {ChessPiece.to_string(self.piece)} | Move: {idx_to_square(self.idx_from)}{idx_to_square(self.idx_to)}"
+		s = f"Piece: {ChessPiece.to_string(self.piece)} | Move: {Board.idx_to_square(self.idx_from)}{Board.idx_to_square(self.idx_to)}"
 		if self.capture is not None:
 			s += " Capture"
 		if self.enpassant:
@@ -490,3 +441,20 @@ class Board:
 			Rank and file of the board square
 		"""
 		return (idx >> 4, idx & 0x0F)
+
+	@staticmethod
+	def idx_to_square(idx: int) -> str:
+		"""Converts a 0x88 board index into chess square notation.
+
+		Parameters
+		----------
+		idx : int
+			0x88 board index
+
+		Returns
+		-------
+		str
+			Chess square string
+		"""
+		rank, file = Board.idx_to_rank_and_file(idx)
+		return f"{chr(97 + file)}{rank + 1}"
