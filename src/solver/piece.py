@@ -4,6 +4,9 @@ from enum import IntEnum
 
 import numpy as np
 
+PIECE_COLOUR_BITMASK = 0x18
+PIECE_TYPE_BITMASK = 0x07
+
 
 class PieceColour(IntEnum):
 	"""Chess piece colour"""
