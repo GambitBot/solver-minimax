@@ -1,6 +1,18 @@
 """Chess board classes"""
 
+import numpy as np
+import numpy.typing as npt
+
 from .piece import ChessPiece, PieceColour, PieceType
+
+DEFAULT_PIECETYPE_WEIGHTS = {
+	PieceType.KING: 100000,
+	PieceType.QUEEN: 500,
+	PieceType.ROOK: 300,
+	PieceType.BISHOP: 200,
+	PieceType.KNIGHT: 200,
+	PieceType.PAWN: 100,
+}
 
 
 def idx_to_square(idx: int) -> str:
@@ -95,85 +107,88 @@ class ChessMove:
 class Board:
 	"""Representation of a chess board."""
 
-	__piecetype_map: dict[str, PieceType] = {
-		"k": PieceType.KING,
-		"q": PieceType.QUEEN,
-		"r": PieceType.ROOK,
-		"b": PieceType.BISHOP,
-		"n": PieceType.KNIGHT,
-		"p": PieceType.PAWN,
-	}
-
+	# Which player is moving next
 	__active_move: PieceColour
+	# Total number of moves in the game
 	__move_count: int
+	# Number of moves since last pawn move or piece capture
 	__halfmove_clock: int
+	# Index of en-passant square (if present)
 	__enpassant: int | None
-	__pieces: list[ChessPiece | None]
+	# Board data array
+	__board: npt.NDArray[np.uint8]
+	# Weights for individual pieces
 	__piecetype_weights: dict[PieceType, int]
+	# Board direction.
+	# False if viewed from white, true if viewed from black.
+	__reversed: bool
+	# If the board is currently "initialized", or if it is reset
+	__initialized: bool
 
 	def __init__(self):
-		"""Initializes a new chess board.
-
-		Not intended to be called directly."""
-		self.__pieces = [None] * 64
-		self.__piecetype_weights = {
-			PieceType.KING: 100000,
-			PieceType.QUEEN: 500,
-			PieceType.ROOK: 300,
-			PieceType.BISHOP: 200,
-			PieceType.KNIGHT: 200,
-			PieceType.PAWN: 100,
-		}
+		"""Initializes an empty chess board."""
+		# Initialize a blank board using the 0x88 board format
+		self.__board = np.zeros(128, dtype=np.uint8)
+		# Set default values for the move counts and enpassant
+		self.__move_count = 0
+		self.__halfmove_clock = 0
 		self.__enpassant = None
+		# Initialize the default piece type weights
+		self.__piecetype_weights = DEFAULT_PIECETYPE_WEIGHTS.copy()
+		# Set the default board orientation
+		self.__reversed = False
+		# Default the board into the reset state
+		self.__initialized = False
 
 	def __str__(self) -> str:
 		"""Returns a string representation of the board state"""
 		s = " |abcdefgh\n-+--------"
-		# Iterate over all pieces in the board with the index
-		for i, p in enumerate(self.__pieces):
-			rank = i // 8
-			file = i % 8
-			# If we're at the beginning of a rank, add the rank number to the string
-			if file == 0:
-				s += f"\n{8 - rank}|"
-			# If the square is the en-passant square, mark it with an asterisk
-			if i == self.__enpassant:
-				s += "*"
-			# If the space is empty, add a space
-			elif p is None:
-				s += " "
-			else:
-				# If the space is not empty, add the FEN string representation
-				# of the piece occupying that space
-				s += p.to_FEN()
-
+		# Ranks count down from the top of the board
+		for rank in reversed(range(0, 8)):
+			# Put a row header for each rank
+			s += f"\n{rank + 1}|"
+			for file in range(0, 8):
+				idx = Board.idx_from_rank_and_file(rank, file)
+				# If the index is the en-passant square, place an asterisk
+				if idx == self.__enpassant:
+					s += "*"
+				# If the index holds a chess piece, use its FEN string representation
+				elif ChessPiece.is_piece(self.__board[idx]):
+					s += ChessPiece.to_FEN(self.__board[idx])
+				# Otherwise, use an empty space
+				else:
+					s += " "
 		return s
 
-	@classmethod
-	def from_fen_string(cls, fen: str) -> "Board":
-		"""Initializes a board from an FEN string.
+	def reset(self) -> None:
+		"""Resets the board to an initial state."""
+		self.__board[:] = 0
+		self.__move_count = 0
+		self.__halfmove_clock = 0
+		self.__enpassant = None
+		self.__reversed = False
+		self.__initialized = False
+
+	def load_fen_string(self, fen: str) -> None:
+		"""Loads an FEN string onto the board.
 
 		Parameters
 		----------
 		fen : str
-			Input FEN string
-
-		Returns
-		-------
-		Board
-			Chess board representation
+			Input FEN string to load.
 
 		Raises
 		------
 		ValueError
-			Invalid FEN string
+			Invalid FEN string provided
 		"""
-		board = cls()
+		# Loading an FEN string necessitates clearing the existing board state
+		self.__board[:] = 0
 		# Split the FEN string up into segments to facilitate parsing
 		fen_segments: list[str] = fen.split(" ")
 		# These do not exactly match with the real ranks and files used
 		# on a chess board, but they work better for computer calcualtion
-		rank = 0
+		rank = 7
 		file = 0
 		# Iterate over the beginning of the FEN string to fill the board
 		for char in fen_segments[0]:
@@ -181,42 +196,46 @@ class Board:
 			if char == "/":
 				# If the file was not already at the end of the rank, throw an error
 				if file < 8:
-					raise ValueError(f"Error parsing FEN string in rank {8 - rank}. Missing information for rank.")
-				# Reset the file, and increment the rank
-				rank += 1
+					raise ValueError(f"Error parsing FEN string. Missing squares for rank {rank + 1}.")
+				# Reset the file, and decrement the rank
+				rank -= 1
 				file = 0
 				continue
 			# If the character is a number, move the file over by that value
 			elif char.isnumeric():
 				file += int(char)
 				if file > 8:
-					raise ValueError(f"Error parsing FEN string in rank {8 - rank}. File exceeds end of rank.")
+					raise ValueError(f"Error parsing FEN string. Rank {rank + 1} contains too many squares.")
 				continue
 			# Character is a letter, which indicates a piece
 			else:
-				if char.casefold() not in Board.__piecetype_map.keys():
-					raise ValueError(f"Error parsing FEN string in rank {8 - rank}. Invalid piece definition: {char}")
-				piecetype = Board.__piecetype_map[char.casefold()]
-				piececolour = PieceColour.WHITE if char.isupper() else PieceColour.BLACK
 				# Add the piece to the board
-				board.__pieces[(rank * 8) + file] = ChessPiece(piececolour, piecetype)
+				self.__board[Board.idx_from_rank_and_file(rank, file)] = ChessPiece.from_FEN(char)
 				# Increment the file by one
 				file += 1
 
+		# If we only had a partial FEN string, end here
+		# TODO: update move counts and en-passant status from this
+		if len(fen_segments) == 1:
+			return
+
+		if len(fen_segments) != 6:
+			raise ValueError(f"Provided FEN string has {len(fen_segments)} segments, expected 6 segments.")
+
+		# By this point we know that we have an FEN string with a correct length.
+
 		# Determine the active move
-		board.__active_move = PieceColour.WHITE if fen_segments[1] == "w" else PieceColour.BLACK
+		self.__active_move = PieceColour.WHITE if fen_segments[1].casefold() == "w" else PieceColour.BLACK
 
 		# TODO: Implement castling checks
 
 		# Pending en-passant status
 		if fen_segments[3] != "-":
-			board.__enpassant = ((8 - int(fen_segments[3][1])) * 8) + (ord(fen_segments[3][0]) - 97)
+			self.__enpassant = Board.idx_from_square(fen_segments[3])
 
 		# Halfmove clock and total moves
-		board.__halfmove_clock = int(fen_segments[4])
-		board.__move_count = int(fen_segments[5])
-
-		return board
+		self.__halfmove_clock = int(fen_segments[4])
+		self.__move_count = int(fen_segments[5])
 
 	def get_state_value(self, player: PieceColour | None = None) -> int:
 		"""Return the value of the current board state for the current move.
@@ -238,103 +257,152 @@ class Board:
 		# Initialize the weight to zero
 		w = 0
 		# Iterate through all of the pieces on the board
-		for p in self.__pieces:
-			# Only proceed if a piece exists in this space
-			if p is not None:
-				# If the piece matches the player with the active move,
-				# increase the weight
-				if p.colour == player:
-					w += self.__piecetype_weights[p.type]
-				else:
-					# Otherwise, decrease the weight
-					w -= self.__piecetype_weights[p.type]
+		for rank in range(8):
+			for file in range(8):
+				idx = Board.idx_from_rank_and_file(rank, file)
+				# Only proceed if a piece exists in this space
+				if ChessPiece.is_piece(self.__board[idx]):
+					piece_colour, piece_type = ChessPiece.decode_piece(self.__board[idx])
+					# If the piece matches the player with the active move,
+					# increase the weight
+					if piece_colour == player:
+						w += self.__piecetype_weights[piece_type]
+					else:
+						# Otherwise, decrease the weight
+						w -= self.__piecetype_weights[piece_type]
 		return w
 
-	def get_moves(self) -> list[ChessMove]:
-		"""Returns possible moves by the active player.
+	# def get_moves(self) -> list[ChessMove]:
+	# 	"""Returns possible moves by the active player.
+
+	# 	Returns
+	# 	-------
+	# 	list[ChessMove]
+	# 		List of potential chess moves.
+	# 	"""
+	# 	moves = []
+	# 	# For pawns, forward is different depending on which player is moving
+	# 	# White actually moves down in indices, while black moves up
+	# 	pawn_direction = -1 if self.__active_move == PieceColour.WHITE else 1
+
+	# 	# Iterate over all of the chess pieces on the board
+	# 	for i, p in enumerate(self.__pieces):
+	# 		# If there is no piece on the current square, continue
+	# 		if p is None:
+	# 			continue
+	# 		# If the piece is an opponent's piece, continue
+	# 		if p.colour != self.__active_move:
+	# 			continue
+	# 		# We now know that the piece must exist, and belong to the active player.
+	# 		# This part needs different logic depending on the type of piece
+	# 		# Begin by storing the rank and file of the piece being evaluated
+	# 		rank, file = idx_to_rank(i)
+
+	# 		match p.type:
+	# 			case PieceType.PAWN:
+	# 				# Pawns can move forward unless there is a piece in the way
+	# 				target_idx = i + (8 * pawn_direction)
+	# 				# Only continue if the target index is on the board and
+	# 				# there is no piece blocking the way
+	# 				if idx_on_board(target_idx) and self.__pieces[target_idx] is None:
+	# 					# Pawn can move forward.
+	# 					# If the pawn has reached the opposing side of the board we can promote it
+	# 					if (self.__active_move == PieceColour.WHITE and idx_to_rank(target_idx)[0] == 0) or (
+	# 						self.__active_move == PieceColour.BLACK and idx_to_rank(target_idx)[0] == 7
+	# 					):
+	# 						# The only promotions that make any sense are promotions
+	# 						# to queen or knight, since all other pieces have only subsets
+	# 						# of a queen's movement
+	# 						moves.append(ChessMove(p, i, target_idx, promotion=PieceType.QUEEN))
+	# 						moves.append(ChessMove(p, i, target_idx, promotion=PieceType.KNIGHT))
+	# 					else:
+	# 						# If the pawn is not in the last row, it cannot promote.
+	# 						moves.append(ChessMove(p, i, target_idx))
+
+	# 				# If the pawn is in its starting row,
+	# 				# it can also optionally move two squares forward
+	# 				target_idx = i + (16 * pawn_direction)
+	# 				if (
+	# 					(self.__active_move == PieceColour.WHITE and rank == 6)
+	# 					or (self.__active_move == PieceColour.BLACK and rank == 1)
+	# 				) and self.__pieces[target_idx] is None:
+	# 					moves.append(ChessMove(p, i, target_idx))
+
+	# 				# The pawn can move forward diagonally if it can capture a piece
+	# 				for offset in (7, 9):
+	# 					target_idx = i + (offset * pawn_direction)
+	# 					# Ensure that the pawn is moving forward by one row
+	# 					# i.e not overflowing off of one side of the board
+	# 					if idx_to_rank(target_idx)[0] != rank + pawn_direction:
+	# 						continue
+
+	# 					# If the target index is the en-passant index, allow the move
+	# 					if self.__enpassant is not None and target_idx == self.__enpassant:
+	# 						moves.append(
+	# 							ChessMove(
+	# 								p,
+	# 								i,
+	# 								target_idx,
+	# 								capture=self.__pieces[self.__enpassant + (-8 * pawn_direction)],
+	# 								enpassant=True,
+	# 							)
+	# 						)
+	# 						continue
+
+	# 					target = self.__pieces[target_idx]
+	# 					# If there is no piece diagonally to capture, the pawn cannot move
+	# 					if target is not None:
+	# 						# There must be a piece diagonally at this point
+	# 						if target.colour == self.__active_move:
+	# 							# Piece is friendly. We cannot move there.
+	# 							continue
+	# 						else:
+	# 							moves.append(ChessMove(p, i, target_idx, capture=target))
+
+	# 	return moves
+
+	@staticmethod
+	def idx_from_rank_and_file(rank: int, file: int) -> int:
+		"""Converts a chess board rank and file to an array index for 0x88 indexing.
+
+		Parameters
+		----------
+		rank : int
+			Chess board rank from 0-7
+		file : int
+			Chess board file as number from 0-7
 
 		Returns
 		-------
-		list[ChessMove]
-			List of potential chess moves.
+		int
+			0x88-format array index
 		"""
-		moves = []
-		# For pawns, forward is different depending on which player is moving
-		# White actually moves down in indices, while black moves up
-		pawn_direction = -1 if self.__active_move == PieceColour.WHITE else 1
+		return (rank << 4) + file
 
-		# Iterate over all of the chess pieces on the board
-		for i, p in enumerate(self.__pieces):
-			# If there is no piece on the current square, continue
-			if p is None:
-				continue
-			# If the piece is an opponent's piece, continue
-			if p.colour != self.__active_move:
-				continue
-			# We now know that the piece must exist, and belong to the active player.
-			# This part needs different logic depending on the type of piece
-			# Begin by storing the rank and file of the piece being evaluated
-			rank, file = idx_to_rank(i)
+	@staticmethod
+	def idx_from_square(square: str) -> int:
+		"""Converts a chess board square to an array index for 0x88 indexing.
 
-			match p.type:
-				case PieceType.PAWN:
-					# Pawns can move forward unless there is a piece in the way
-					target_idx = i + (8 * pawn_direction)
-					# Only continue if the target index is on the board and
-					# there is no piece blocking the way
-					if idx_on_board(target_idx) and self.__pieces[target_idx] is None:
-						# Pawn can move forward.
-						# If the pawn has reached the opposing side of the board we can promote it
-						if (self.__active_move == PieceColour.WHITE and idx_to_rank(target_idx)[0] == 0) or (
-							self.__active_move == PieceColour.BLACK and idx_to_rank(target_idx)[0] == 7
-						):
-							# The only promotions that make any sense are promotions
-							# to queen or knight, since all other pieces have only subsets
-							# of a queen's movement
-							moves.append(ChessMove(p, i, target_idx, promotion=PieceType.QUEEN))
-							moves.append(ChessMove(p, i, target_idx, promotion=PieceType.KNIGHT))
-						else:
-							# If the pawn is not in the last row, it cannot promote.
-							moves.append(ChessMove(p, i, target_idx))
+		Parameters
+		----------
+		square : str
+			Chess board square in file-rank representation (e.g. a3, b4, etc.)
 
-					# If the pawn is in its starting row,
-					# it can also optionally move two squares forward
-					target_idx = i + (16 * pawn_direction)
-					if (
-						(self.__active_move == PieceColour.WHITE and rank == 6)
-						or (self.__active_move == PieceColour.BLACK and rank == 1)
-					) and self.__pieces[target_idx] is None:
-						moves.append(ChessMove(p, i, target_idx))
+		Returns
+		-------
+		int
+			0x88-format array index
 
-					# The pawn can move forward diagonally if it can capture a piece
-					for offset in (7, 9):
-						target_idx = i + (offset * pawn_direction)
-						# Ensure that the pawn is moving forward by one row
-						# i.e not overflowing off of one side of the board
-						if idx_to_rank(target_idx)[0] != rank + pawn_direction:
-							continue
+		Raises
+		------
+		ValueError
+			Invalid chess square provided
+		"""
+		if (len(square) != 2) or not square[1].isnumeric():
+			raise ValueError(f"Invalid chess square {square}")
 
-						# If the target index is the en-passant index, allow the move
-						if self.__enpassant is not None and target_idx == self.__enpassant:
-							moves.append(
-								ChessMove(
-									p,
-									i,
-									target_idx,
-									capture=self.__pieces[self.__enpassant + (-8 * pawn_direction)],
-									enpassant=True,
-								)
-							)
-							continue
+		idx = ((int(square[1]) - 1) << 4) + (ord(square[0].casefold()) - 97)
+		if (idx < 0) or (idx > 127) or (idx & 0x88):
+			raise ValueError(f"Invalid chess square {square}")
 
-						target = self.__pieces[target_idx]
-						# If there is no piece diagonally to capture, the pawn cannot move
-						if target is not None:
-							# There must be a piece diagonally at this point
-							if target.colour == self.__active_move:
-								# Piece is friendly. We cannot move there.
-								continue
-							else:
-								moves.append(ChessMove(p, i, target_idx, capture=target))
-
-		return moves
+		return idx

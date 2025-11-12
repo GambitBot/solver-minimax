@@ -1,0 +1,39 @@
+name: Test
+
+on:
+  push:
+  pull_request:
+    types: [ opened, reopened, synchronize ]
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # List of specific python versions to use for testing
+        python-version: ["3.11"]
+
+    name: Test ${{ matrix.python-version }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up CPython ${{ matrix.python-version }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          python -m pip install --upgrade pip
+          if [ -f requirements-tests.txt ]; then pip install -r requirements-tests.txt; fi
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Add venv to path
+        run: echo "$PWD/.venv/bin" >> $GITHUB_PATH
+
+      - name: Test with pytest
+        run: |
+          pytest -vs --cov=solver --cov-report term-missing:skip-covered

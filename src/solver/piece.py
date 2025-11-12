@@ -2,32 +2,44 @@
 
 from enum import IntEnum
 
+import numpy as np
+
 
 class PieceColour(IntEnum):
 	"""Chess piece colour"""
 
-	BLACK = 0
-	WHITE = 8
+	# We're going to need to use 8 bits for each board square anyways,
+	# so we can use
+	NONE = 0
+	BLACK = 8
+	WHITE = 16
 
 
 class PieceType(IntEnum):
 	"""Chess piece type"""
 
-	PAWN = 0
-	ROOK = 1
-	KNIGHT = 2
-	BISHOP = 3
-	QUEEN = 4
-	KING = 5
+	NONE = 0
+	PAWN = 1
+	ROOK = 2
+	KNIGHT = 3
+	BISHOP = 4
+	QUEEN = 5
+	KING = 6
 
 
 class ChessPiece:
-	"""Chess piece"""
+	"""Chess piece function class"""
 
-	__colour: PieceColour
-	__type: PieceType
+	__piecetype_map: dict[str, PieceType] = {
+		"k": PieceType.KING,
+		"q": PieceType.QUEEN,
+		"r": PieceType.ROOK,
+		"b": PieceType.BISHOP,
+		"n": PieceType.KNIGHT,
+		"p": PieceType.PAWN,
+	}
 
-	__piecechar_map: dict[PieceType, str] = {
+	__piecechar_map: dict[PieceType | int, str] = {
 		PieceType.KING: "k",
 		PieceType.QUEEN: "q",
 		PieceType.ROOK: "r",
@@ -36,7 +48,7 @@ class ChessPiece:
 		PieceType.PAWN: "p",
 	}
 
-	__piecestr_map: dict[PieceType, str] = {
+	__piecestr_map: dict[PieceType | int, str] = {
 		PieceType.KING: "King",
 		PieceType.QUEEN: "Queen",
 		PieceType.ROOK: "Rook",
@@ -45,46 +57,117 @@ class ChessPiece:
 		PieceType.PAWN: "Pawn",
 	}
 
-	def __init__(self, colour: PieceColour, type: PieceType):
-		"""Initialize a chess piece
+	@staticmethod
+	def decode_piece(piece_num: np.uint8) -> tuple[PieceColour, PieceType]:
+		"""Decodes a piece number into its colour and type.
 
 		Parameters
 		----------
-		colour : Colour
-			Player colour
-		type : PieceType
-			Piece type
-		"""
-		self.__colour = colour
-		self.__type = type
-
-	def __int__(self) -> int:
-		"""Returns an integer representation of the piece.
+		piece_num : np.uint8
+			Piece number.
 
 		Returns
 		-------
-		int
-			Integer representation of the piece.
+		tuple[PieceColour, PieceType]
+			Piece colour and piece type.
+
+		Raises
+		------
+		ValueError
+			Invalid piece number provided.
 		"""
-		return self.__type + self.__colour
+		try:
+			piece_colour = PieceColour(piece_num & 0b11000)
+			piece_type = PieceType(piece_num & 0b111)
+		except ValueError as e:
+			raise e
 
-	def __str__(self) -> str:
-		"""Returns a string representation of the piece."""
-		return self.__piecestr_map[self.__type]
+		return (piece_colour, piece_type)
 
-	def to_FEN(self) -> str:
-		"""Returns the FEN string representation of the piece"""
-		char = self.__piecechar_map[self.__type]
-		if self.__colour == PieceColour.WHITE:
-			char = char.upper()
-		return char
+	@staticmethod
+	def from_FEN(char: str) -> np.uint8:
+		"""Converts an FEN string character to an integer representation of a chess piece.
 
-	@property
-	def colour(self) -> PieceColour:
-		"""Piece colour"""
-		return self.__colour
+		Parameters
+		----------
+		char : str
+			FEN string character
 
-	@property
-	def type(self) -> PieceType:
-		"""Piece type"""
-		return self.__type
+		Returns
+		-------
+		np.uint8
+			Integer piece representation
+
+		Raises
+		------
+		ValueError
+			Invalid character
+		"""
+		# If the character is invalid, throw an error
+		if char.casefold() not in ChessPiece.__piecetype_map:
+			raise ValueError(f"Invalid FEN string character: {char}")
+		# Initialize the result value
+		result = np.uint8(0)
+		# Set the colour of the piece. Capital letters indicate white pieces.
+		result += PieceColour.WHITE if char.isupper() else PieceColour.BLACK
+		# Retrieve the value
+		result += ChessPiece.__piecetype_map[char.casefold()]
+		return result
+
+	@staticmethod
+	def to_FEN(piece_num: np.uint8) -> str:
+		"""Converts a piece number to its FEN string representation.
+
+		Parameters
+		----------
+		pieceNum : np.uint8
+			Integer piece representation
+
+		Returns
+		-------
+		str
+			FEN character of the piece
+
+		Raises
+		------
+		ValueError
+			Invalid piece type
+		ValueError
+			Empty piece provided
+		"""
+		# Retrieve the type of the piece
+		pieceType = piece_num & 0b111
+		if pieceType not in ChessPiece.__piecechar_map:
+			raise ValueError(f"Invalid piece number: {piece_num}")
+		# Extra conversion to int is needed to make the type checker happy
+		result = ChessPiece.__piecechar_map[int(pieceType)]
+
+		# Retrieve the colour of the piece
+		colourInt = piece_num & 0b11000
+		if colourInt == PieceColour.WHITE:
+			# If the piece is a white piece, use an uppercase character
+			result = result.upper()
+		elif colourInt == PieceColour.BLACK:
+			# We don't need to do anything for a black piece since the character
+			# is already lowercase
+			pass
+		else:
+			raise ValueError("Unable to generate FEN character from nonexistent piece.")
+
+		return result
+
+	@staticmethod
+	def is_piece(piece_num: np.uint8) -> bool:
+		"""Checks if an integer represents a chess piece or an empty square.
+
+		Parameters
+		----------
+		pieceNum : np.uint8
+			Input integer
+
+		Returns
+		-------
+		bool
+			If the integer represents a chess piece.
+		"""
+		return piece_num & 0b11000 != 0

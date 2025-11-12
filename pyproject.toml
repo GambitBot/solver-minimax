@@ -52,5 +52,9 @@ select = [
 	"D419", # empty-docstring
 ]
 
+[tool.ruff.per-file-ignores]
+# Ignore docstrings in all tests
+"tests/**" = ["D"]
+
 [tool.ruff.format]
 indent-style = "tab"
