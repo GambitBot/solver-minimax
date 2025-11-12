@@ -171,3 +171,29 @@ class ChessPiece:
 			If the integer represents a chess piece.
 		"""
 		return piece_num & 0b11000 != 0
+
+	@staticmethod
+	def to_string(piece_num: np.uint8) -> str:
+		"""Converts a piece number to a string representing the piece type.
+
+		Parameters
+		----------
+		piece_num : np.uint8
+			Integer piece representation
+
+		Returns
+		-------
+		str
+			String representation of the piece type
+
+		Raises
+		------
+		ValueError
+			Invalid piece type
+		"""
+		# Retrieve the type of the piece
+		pieceType = piece_num & 0b111
+		if pieceType not in ChessPiece.__piecestr_map:
+			raise ValueError(f"Invalid piece number: {piece_num}")
+		# Extra conversion to int is needed to make the type checker happy
+		return ChessPiece.__piecestr_map[int(pieceType)]
