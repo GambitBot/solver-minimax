@@ -4,4 +4,5 @@
 # Install the local package in editable mode
 -e .
 
-numpy>=2.3,<2.4
+pytest>=9.0.0,<10
+pytest-cov>=7.0.0,<8
