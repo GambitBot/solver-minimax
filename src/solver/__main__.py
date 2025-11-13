@@ -16,7 +16,13 @@ print(f"Board state weight: {b.get_state_value()}")
 
 print("Determining possible moves")
 moves = b.get_moves()
+print(f"Detected {len(moves)} moves:")
 for m in moves:
 	print(f"    {m}")
+
+print("Selecting an optimal move with depth 4")
+move = b.solve(4)
+print("Optimal move:")
+print(f"    {move}")
 
 pass

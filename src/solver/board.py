@@ -1,5 +1,7 @@
 """Chess board classes"""
 
+from collections.abc import Iterable
+
 import numpy as np
 
 from .piece import ChessPiece, PieceColour, PieceType
@@ -222,6 +224,39 @@ class Board:
 						w -= self.__piecetype_weights[piece_type]
 		return w
 
+	def __move_linear(self, idx: int, directions: Iterable[int]) -> list[ChessMove]:
+		"""Generates moves for repeatable linear motion (rooks, bishops, queens)
+
+		Parameters
+		----------
+		idx : int
+			Piece starting index
+		directions : list[int]
+			Index directions to move
+
+		Returns
+		-------
+		list[ChessMove]
+			Possible chess moves
+		"""
+		moves = []
+		piece_num = self.__board[idx]
+		for m in directions:  # Corresponds to North, East, South, West, respectively
+			new_idx = idx + m
+			while Board.idx_on_board(new_idx):
+				# Check if the new index contains a piece
+				if ChessPiece.is_piece(self.__board[new_idx]):
+					# If the index contains a piece, check if it's an opponent piece
+					if ChessPiece.decode_piece(self.__board[new_idx])[0] != self.__active_move:
+						# Opponent piece detected. Add a move to capture it.
+						moves.append(ChessMove(piece_num, idx, new_idx, capture=new_idx))
+					# Regardless of if the piece could be captured or not, stop the loop
+					break
+				# If the space was blank, add a move to move there
+				moves.append(ChessMove(piece_num, idx, new_idx))
+				new_idx += m
+		return moves
+
 	def get_moves(self) -> list[ChessMove]:
 		"""Returns possible moves by the active player.
 
@@ -296,15 +331,50 @@ class Board:
 								)
 
 				case PieceType.ROOK:
-					pass  # TODO
+					# Rooks can move any cardinal direction
+					moves += self.__move_linear(i, (16, 1, -16, -1))
+
 				case PieceType.KNIGHT:
-					pass  # TODO
+					# Knights can only move to specific nearby squares
+					for m in (33, 18, -14, -31, -33, -18, 14, 31):
+						new_idx = i + m
+						if Board.idx_on_board(new_idx):
+							if (
+								# Target square is a chess piece
+								ChessPiece.is_piece(self.__board[new_idx])
+								# Target piece is not friendly
+								and (ChessPiece.decode_piece(self.__board[new_idx])[0] != self.__active_move)
+							):
+								# Target square contains an enemy piece that can be captured
+								moves.append(ChessMove(piece_num, i, new_idx, capture=new_idx))
+							elif not ChessPiece.is_piece(self.__board[new_idx]):
+								# Target square is empty
+								moves.append(ChessMove(piece_num, i, new_idx))
+							# If the target square contains a friendly piece, nothing happens
+
 				case PieceType.BISHOP:
-					pass  # TODO
+					# Bishops can move diagonally
+					moves += self.__move_linear(i, (15, 17, -15, -17))
+
 				case PieceType.QUEEN:
-					pass  # TODO
+					# Queens can move along cardinal directions, or diagonally
+					moves += self.__move_linear(i, (15, 16, 17, 1, -15, -16, -17, -1))
+
 				case PieceType.KING:
-					pass  # TODO
+					# The king can move in any direction, but only by one tile at a time
+					for m in (15, 16, 17, 1, -15, -16, -17, -1):
+						new_idx = i + m
+						if Board.idx_on_board(new_idx):
+							# Check if the target contains an opposing piece
+							if (
+								ChessPiece.is_piece(self.__board[new_idx])
+								and ChessPiece.decode_piece(self.__board[new_idx])[0] != self.__active_move
+							):
+								moves.append(ChessMove(piece_num, i, new_idx, capture=new_idx))
+							elif not ChessPiece.is_piece(self.__board[new_idx]):
+								moves.append(ChessMove(piece_num, i, new_idx))
+
+					# TODO: Allow castling
 
 		return moves
 
@@ -325,7 +395,7 @@ class Board:
 		new_board = Board()
 		# Copy the existing board state to start
 		new_board.__board = self.__board.copy()
-		# Reverse the active move
+		# Swap the active move
 		if self.__active_move == PieceColour.WHITE:
 			new_board.__active_move = PieceColour.BLACK
 		else:
@@ -363,6 +433,51 @@ class Board:
 			new_board.__enpassant = None
 
 		return new_board
+
+	def solve(self, target_depth: int) -> ChessMove:
+		"""Calculates an optimal chess move to make.
+
+		Searches a specific depth in a move tree.
+
+		Parameters
+		----------
+		target_depth : int
+			Target depth to search to.
+
+		Returns
+		-------
+		ChessMove
+			Optimal chess move
+		"""
+		# Generate a list of moves that we could make
+		move_list = self.get_moves()
+		# Initialize an array of scores for each move
+		move_scores = np.zeros(len(move_list))
+		# For each move, recursively solve for the worst possible outcome, up to the target depth
+		for i, m in enumerate(move_list):
+			move_scores[i] = self.with_move(m).__solve_recurse(self.__active_move, target_depth, 1)
+
+		# Find the index of the move with the least-worst possible outcome
+		move_idx = move_scores.argmax()
+		# Return the move with the best overall score
+		return move_list[move_idx]
+
+	def __solve_recurse(self, player: PieceColour, target_depth: int, current_depth: int) -> int:
+		# Get the current value of the board
+		# If we have reached the target depth, return the board value immediately
+		if current_depth >= target_depth:
+			return self.get_state_value(player)
+
+		# If we have not reached the target depth, generate a list of moves that the active player could make.
+		move_list = self.get_moves()
+		# Initialize an array of scores for each move
+		move_scores = np.zeros(len(move_list))
+		# Iterate through all moves
+		for i, m in enumerate(move_list):
+			move_scores[i] = self.with_move(m).__solve_recurse(player, target_depth, current_depth + 1)
+
+		# Return the score of the move with the worst possible outcome
+		return move_scores.min()
 
 	@staticmethod
 	def idx_from_rank_and_file(rank: int, file: int) -> int:
