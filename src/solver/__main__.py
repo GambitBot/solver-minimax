@@ -1,5 +1,7 @@
 """Gambit chess solving engine using a Minimax algorithm"""
 
+import time
+
 from .board import Board
 
 FEN_STRING = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
@@ -20,9 +22,12 @@ print(f"Detected {len(moves)} moves:")
 for m in moves:
 	print(f"    {m}")
 
+start_time = time.time()
 print("Selecting an optimal move with depth 4")
 move = b.solve(4)
 print("Optimal move:")
 print(f"    {move}")
+end_time = time.time()
+print(f"Duration: {end_time - start_time:.3f}s")
 
 pass
