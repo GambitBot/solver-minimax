@@ -8,10 +8,10 @@ from .piece import ChessPiece, PieceColour, PieceType
 
 DEFAULT_PIECETYPE_WEIGHTS = {
 	PieceType.KING: 100000,
-	PieceType.QUEEN: 500,
-	PieceType.ROOK: 300,
-	PieceType.BISHOP: 200,
-	PieceType.KNIGHT: 200,
+	PieceType.QUEEN: 900,
+	PieceType.ROOK: 500,
+	PieceType.BISHOP: 300,
+	PieceType.KNIGHT: 300,
 	PieceType.PAWN: 100,
 }
 
