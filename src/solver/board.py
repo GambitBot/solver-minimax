@@ -109,7 +109,7 @@ class Board:
 					s += ChessPiece.to_FEN(self.__board[idx])
 				# Otherwise, use an empty space
 				else:
-					s += " "
+					s += "."
 		return s
 
 	def reset(self) -> None:
