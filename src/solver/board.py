@@ -453,16 +453,21 @@ class Board:
 		move_list = self.get_moves()
 		# Initialize an array of scores for each move
 		move_scores = np.zeros(len(move_list))
+		# Initialize the alpha value to -1M
+		alpha = int(-1e6)
 		# For each move, recursively solve for the worst possible outcome, up to the target depth
 		for i, m in enumerate(move_list):
-			move_scores[i] = self.with_move(m).__solve_recurse(self.__active_move, target_depth, 1)
+			move_scores[i] = self.with_move(m).__solve_recurse(self.__active_move, target_depth, 1, alpha)
+			# If the move has provided a less-worse outcome that the alpha value, update alpha
+			if move_scores[i] > alpha:
+				alpha = move_scores[i]
 
 		# Find the index of the move with the least-worst possible outcome
 		move_idx = move_scores.argmax()
 		# Return the move with the best overall score
 		return move_list[move_idx]
 
-	def __solve_recurse(self, player: PieceColour, target_depth: int, current_depth: int) -> int:
+	def __solve_recurse(self, player: PieceColour, target_depth: int, current_depth: int, alpha: int) -> int:
 		# Get the current value of the board
 		# If we have reached the target depth, return the board value immediately
 		if current_depth >= target_depth:
@@ -471,10 +476,14 @@ class Board:
 		# If we have not reached the target depth, generate a list of moves that the active player could make.
 		move_list = self.get_moves()
 		# Initialize an array of scores for each move
-		move_scores = np.zeros(len(move_list))
+		move_scores = np.full(len(move_list), np.iinfo(np.int32).max, dtype=np.int32)
 		# Iterate through all moves
 		for i, m in enumerate(move_list):
-			move_scores[i] = self.with_move(m).__solve_recurse(player, target_depth, current_depth + 1)
+			move_scores[i] = self.with_move(m).__solve_recurse(player, target_depth, current_depth + 1, alpha)
+			# If we recovered a move state that was worse than the existing alpha value,
+			# return the value immediately so that we can stop evaluating this branch.
+			if move_scores[i] < alpha:
+				return move_scores[i]
 
 		# Return the score of the move with the worst possible outcome
 		return move_scores.min()
