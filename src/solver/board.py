@@ -121,6 +121,21 @@ class Board:
 		self.__reversed = False
 		self.__initialized = False
 
+	def copy_to(self, target: "Board") -> None:
+		"""Copies the current board state to a different board.
+
+		Parameters
+		----------
+		target : Board
+			Target board to copy to.
+		"""
+		np.copyto(target.__board, self.__board)
+		target.__move_count = self.__move_count
+		target.__halfmove_clock = self.__halfmove_clock
+		target.__enpassant = self.__enpassant
+		target.__reversed = self.__reversed
+		target.__initialized = self.__initialized
+
 	def load_fen_string(self, fen: str) -> None:
 		"""Loads an FEN string onto the board.
 
@@ -378,61 +393,54 @@ class Board:
 
 		return moves
 
-	def with_move(self, move: ChessMove) -> "Board":
+	def with_move(self, move: ChessMove, target: "Board") -> None:
 		"""Returns a new instance of the board with a given chess move applied.
 
 		Parameters
 		----------
 		move : ChessMove
 			Chess move to apply.
+		target : Board
+			Target board to apply move to.
 
 		Returns
 		-------
-		Board
-			New board with chess move applied.
+		None
 		"""
-		# Initialize a new board
-		new_board = Board()
-		# Copy the existing board state to start
-		new_board.__board = self.__board.copy()
+		# Copy the existing board state to the new board
+		self.copy_to(target)
 		# Swap the active move
 		if self.__active_move == PieceColour.WHITE:
-			new_board.__active_move = PieceColour.BLACK
+			target.__active_move = PieceColour.BLACK
 		else:
-			new_board.__active_move = PieceColour.WHITE
+			target.__active_move = PieceColour.WHITE
 
 		# Increment the move count
-		new_board.__move_count = self.__move_count + 1
+		target.__move_count = self.__move_count + 1
 
 		# If a pawn was moved, or a piece was captured, reset the halfmove clock.
 		if ChessPiece.decode_piece(move.piece)[1] == PieceType.PAWN or move.capture is not None:
-			new_board.__halfmove_clock = 0
+			target.__halfmove_clock = 0
 		else:
 			# Otherwise, incremenet the clock by one.
-			new_board.__halfmove_clock = self.__halfmove_clock + 1
-
-		# Copy the reversed and initialized states of the board
-		new_board.__reversed = self.__reversed
-		new_board.__initialized = self.__initialized
+			target.__halfmove_clock = self.__halfmove_clock + 1
 
 		# Apply the move
 		if move.capture is not None:
 			# If the move is capturing a piece, set the capture index to 0
-			new_board.__board[move.capture] = 0
+			target.__board[move.capture] = 0
 
 		# Move the piece to its new location
-		new_board.__board[move.idx_to] = move.piece
-		new_board.__board[move.idx_from] = 0
+		target.__board[move.idx_to] = move.piece
+		target.__board[move.idx_from] = 0
 
 		# If the piece was a pawn that moved two squares, set the new enpassant index
 		if ChessPiece.decode_piece(move.piece)[1] == PieceType.PAWN and abs(move.idx_to - move.idx_from) > 20:
 			# This will set the enpassant index to the halfway point between the two squares, which
 			# will correspond to the square that the pawn jumped over.
-			new_board.__enpassant = move.idx_from + ((move.idx_to - move.idx_from) // 2)
+			target.__enpassant = move.idx_from + ((move.idx_to - move.idx_from) // 2)
 		else:
-			new_board.__enpassant = None
-
-		return new_board
+			target.__enpassant = None
 
 	def solve(self, target_depth: int) -> ChessMove:
 		"""Calculates an optimal chess move to make.
@@ -455,9 +463,18 @@ class Board:
 		move_scores = np.zeros(len(move_list))
 		# Initialize the alpha value to -1M
 		alpha = int(-1e6)
+		# Initialize a list of static boards to use
+		boards: list[Board] = []
+		boards.append(self)  # Add the current board as the 0th index
+		for i in range(target_depth):
+			boards.append(Board())
+		assert len(boards) == (target_depth + 1)
+
 		# For each move, recursively solve for the worst possible outcome, up to the target depth
 		for i, m in enumerate(move_list):
-			move_scores[i] = self.with_move(m).__solve_recurse(self.__active_move, target_depth, 1, alpha)
+			# Apply the move to the next static board
+			self.with_move(m, boards[1])
+			move_scores[i] = boards[1].__solve_recurse(boards, self.__active_move, target_depth, 1, alpha)
 			# If the move has provided a less-worse outcome that the alpha value, update alpha
 			if move_scores[i] > alpha:
 				alpha = move_scores[i]
@@ -467,7 +484,9 @@ class Board:
 		# Return the move with the best overall score
 		return move_list[move_idx]
 
-	def __solve_recurse(self, player: PieceColour, target_depth: int, current_depth: int, alpha: int) -> int:
+	def __solve_recurse(
+		self, boards: list["Board"], player: PieceColour, target_depth: int, current_depth: int, alpha: int
+	) -> int:
 		# Get the current value of the board
 		# If we have reached the target depth, return the board value immediately
 		if current_depth >= target_depth:
@@ -479,7 +498,12 @@ class Board:
 		move_scores = np.full(len(move_list), np.iinfo(np.int32).max, dtype=np.int32)
 		# Iterate through all moves
 		for i, m in enumerate(move_list):
-			move_scores[i] = self.with_move(m).__solve_recurse(player, target_depth, current_depth + 1, alpha)
+			# Apply the move to the next static board
+			self.with_move(m, boards[current_depth + 1])
+			# Evaluate the next static board
+			move_scores[i] = boards[current_depth + 1].__solve_recurse(
+				boards, player, target_depth, current_depth + 1, alpha
+			)
 			# If we recovered a move state that was worse than the existing alpha value,
 			# return the value immediately so that we can stop evaluating this branch.
 			if move_scores[i] < alpha:
