@@ -4,7 +4,7 @@ from collections.abc import Iterable
 
 import numpy as np
 
-from piece import ChessPiece, PieceColour, PieceType
+from .piece import ChessPiece, PieceColour, PieceType
 
 INF = 10**9
 DEFAULT_PIECETYPE_WEIGHTS = {
@@ -462,10 +462,13 @@ class Board:
 		for depth in range(1, target_depth + 1):
 			best_score = -INF
 			best_idx = 0
+			alpha = -INF
 			for i, m in enumerate(move_list):
-				score = self.with_move(m).__solve_recurse(self.__active_move, depth, -INF, INF)
+				score = self.with_move(m).__solve_recurse(self.__active_move, depth, -INF, -alpha)
 				if score > best_score:
 					best_score = score
+				if score > alpha:
+					alpha = score
 					best_move = m
 					best_idx = i
 			move_list[0], move_list[best_idx] = (move_list[best_idx], move_list[0])
