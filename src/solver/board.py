@@ -455,15 +455,17 @@ class Board:
 		"""
 		# Generate a list of moves that we could make
 		move_list = self.get_moves()
-		best_score = -INF
+
 		best_move = move_list[0]
 
 		# For each move, recursively solve for the worst possible outcome, up to the target depth
-		for m in move_list:
-			score = self.with_move(m).__solve_recurse(self.__active_move, target_depth, -INF, INF)
-			if score > best_score:
-				best_score = score
-				best_move = m
+		for depth in range(1, target_depth + 1):
+			best_score = -INF
+			for m in move_list:
+				score = self.with_move(m).__solve_recurse(self.__active_move, depth, -INF, INF)
+				if score > best_score:
+					best_score = score
+					best_move = m
 
 		return best_move
 
