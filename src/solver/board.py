@@ -4,7 +4,7 @@ from collections.abc import Iterable
 
 import numpy as np
 
-from .piece import ChessPiece, PieceColour, PieceType
+from piece import ChessPiece, PieceColour, PieceType
 
 INF = 10**9
 DEFAULT_PIECETYPE_WEIGHTS = {
@@ -455,16 +455,17 @@ class Board:
 		"""
 		# Generate a list of moves that we could make
 		move_list = self.get_moves()
-		# Initialize an array of scores for each move
-		move_scores = np.zeros(len(move_list))
-		# For each move, recursively solve for the worst possible outcome, up to the target depth
-		for i, m in enumerate(move_list):
-			move_scores[i] = self.with_move(m).__solve_recurse(self.__active_move, target_depth, -INF, INF)
+		best_score = -INF
+		best_move = move_list[0]
 
-		# Find the index of the move with the least-worst possible outcome
-		move_idx = move_scores.argmax()
-		# Return the move with the best overall score
-		return move_list[move_idx]
+		# For each move, recursively solve for the worst possible outcome, up to the target depth
+		for m in move_list:
+			score = self.with_move(m).__solve_recurse(self.__active_move, target_depth, -INF, INF)
+			if score > best_score:
+				best_score = score
+				best_move = m
+
+		return best_move
 
 	def __solve_recurse(
 		self,
