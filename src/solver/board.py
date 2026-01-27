@@ -46,13 +46,13 @@ class ChessMove:
 
 	def __str__(self) -> str:
 		"""Return a string representation of a move."""
-		s = f"Piece: {ChessPiece.to_string(self.piece)} | Move: {Board.idx_to_square(self.idx_from)}{Board.idx_to_square(self.idx_to)}"
+		s = f'Piece: {ChessPiece.to_string(self.piece)} | Move: {Board.idx_to_square(self.idx_from)}{Board.idx_to_square(self.idx_to)}'
 		if self.capture is not None:
-			s += " Capture"
+			s += ' Capture'
 		if self.enpassant:
-			s += " en-passant"
+			s += ' en-passant'
 		if self.promotion is not None:
-			s += f" | Promotion: {ChessPiece.to_string(np.uint8(self.promotion))}"
+			s += f' | Promotion: {ChessPiece.to_string(np.uint8(self.promotion))}'
 		return s
 
 
@@ -94,22 +94,22 @@ class Board:
 
 	def __str__(self) -> str:
 		"""Returns a string representation of the board state"""
-		s = " |abcdefgh\n-+--------"
+		s = ' |abcdefgh\n-+--------'
 		# Ranks count down from the top of the board
 		for rank in reversed(range(0, 8)):
 			# Put a row header for each rank
-			s += f"\n{rank + 1}|"
+			s += f'\n{rank + 1}|'
 			for file in range(0, 8):
 				idx = Board.idx_from_rank_and_file(rank, file)
 				# If the index is the en-passant square, place an asterisk
 				if idx == self.__enpassant:
-					s += "*"
+					s += '*'
 				# If the index holds a chess piece, use its FEN string representation
 				elif ChessPiece.is_piece(self.__board[idx]):
 					s += ChessPiece.to_FEN(self.__board[idx])
 				# Otherwise, use an empty space
 				else:
-					s += "."
+					s += '.'
 		return s
 
 	def reset(self) -> None:
@@ -137,7 +137,7 @@ class Board:
 		# Loading an FEN string necessitates clearing the existing board state
 		self.__board[:] = 0
 		# Split the FEN string up into segments to facilitate parsing
-		fen_segments: list[str] = fen.split(" ")
+		fen_segments: list[str] = fen.split(' ')
 		# These do not exactly match with the real ranks and files used
 		# on a chess board, but they work better for computer calcualtion
 		rank = 7
@@ -145,10 +145,10 @@ class Board:
 		# Iterate over the beginning of the FEN string to fill the board
 		for char in fen_segments[0]:
 			# If the character is a slash, move to the next rank
-			if char == "/":
+			if char == '/':
 				# If the file was not already at the end of the rank, throw an error
 				if file < 8:
-					raise ValueError(f"Error parsing FEN string. Missing squares for rank {rank + 1}.")
+					raise ValueError(f'Error parsing FEN string. Missing squares for rank {rank + 1}.')
 				# Reset the file, and decrement the rank
 				rank -= 1
 				file = 0
@@ -157,7 +157,7 @@ class Board:
 			elif char.isnumeric():
 				file += int(char)
 				if file > 8:
-					raise ValueError(f"Error parsing FEN string. Rank {rank + 1} contains too many squares.")
+					raise ValueError(f'Error parsing FEN string. Rank {rank + 1} contains too many squares.')
 				continue
 			# Character is a letter, which indicates a piece
 			else:
@@ -172,17 +172,17 @@ class Board:
 			return
 
 		if len(fen_segments) != 6:
-			raise ValueError(f"Provided FEN string has {len(fen_segments)} segments, expected 6 segments.")
+			raise ValueError(f'Provided FEN string has {len(fen_segments)} segments, expected 6 segments.')
 
 		# By this point we know that we have an FEN string with a correct length.
 
 		# Determine the active move
-		self.__active_move = PieceColour.WHITE if fen_segments[1].casefold() == "w" else PieceColour.BLACK
+		self.__active_move = PieceColour.WHITE if fen_segments[1].casefold() == 'w' else PieceColour.BLACK
 
 		# TODO: Implement castling checks
 
 		# Pending en-passant status
-		if fen_segments[3] != "-":
+		if fen_segments[3] != '-':
 			self.__enpassant = Board.idx_from_square(fen_segments[3])
 
 		# Halfmove clock and total moves
@@ -378,7 +378,7 @@ class Board:
 
 		return moves
 
-	def with_move(self, move: ChessMove) -> "Board":
+	def with_move(self, move: ChessMove) -> 'Board':
 		"""Returns a new instance of the board with a given chess move applied.
 
 		Parameters
@@ -517,11 +517,11 @@ class Board:
 			Invalid chess square provided
 		"""
 		if (len(square) != 2) or not square[1].isnumeric():
-			raise ValueError(f"Invalid chess square {square}")
+			raise ValueError(f'Invalid chess square {square}')
 
 		idx = ((int(square[1]) - 1) << 4) + (ord(square[0].casefold()) - 97)
 		if (idx < 0) or (idx > 127) or (idx & 0x88):
-			raise ValueError(f"Invalid chess square {square}")
+			raise ValueError(f'Invalid chess square {square}')
 
 		return idx
 
@@ -572,4 +572,4 @@ class Board:
 			Chess square string
 		"""
 		rank, file = Board.idx_to_rank_and_file(idx)
-		return f"{chr(97 + file)}{rank + 1}"
+		return f'{chr(97 + file)}{rank + 1}'
