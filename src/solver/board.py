@@ -6,6 +6,7 @@ import numpy as np
 
 from .piece import ChessPiece, PieceColour, PieceType
 
+INF = 10**9
 DEFAULT_PIECETYPE_WEIGHTS = {
 	PieceType.KING: 100000,
 	PieceType.QUEEN: 900,
@@ -25,6 +26,7 @@ class ChessMove:
 	promotion: PieceType | None
 	capture: int | None
 	enpassant: bool
+	score: float
 
 	def __init__(
 		self,
@@ -35,6 +37,7 @@ class ChessMove:
 		promotion: PieceType | None = None,
 		capture: int | None = None,
 		enpassant: bool = False,
+		score: float = -float('inf'),
 	):
 		"""Initializes a move"""
 		self.piece = piece
@@ -43,6 +46,7 @@ class ChessMove:
 		self.promotion = promotion
 		self.capture = capture
 		self.enpassant = enpassant
+		self.score = score
 
 	def __str__(self) -> str:
 		"""Return a string representation of a move."""
@@ -455,29 +459,45 @@ class Board:
 		move_scores = np.zeros(len(move_list))
 		# For each move, recursively solve for the worst possible outcome, up to the target depth
 		for i, m in enumerate(move_list):
-			move_scores[i] = self.with_move(m).__solve_recurse(self.__active_move, target_depth, 1)
+			move_scores[i] = self.with_move(m).__solve_recurse(self.__active_move, target_depth, -INF, INF)
 
 		# Find the index of the move with the least-worst possible outcome
 		move_idx = move_scores.argmax()
 		# Return the move with the best overall score
 		return move_list[move_idx]
 
-	def __solve_recurse(self, player: PieceColour, target_depth: int, current_depth: int) -> int:
-		# Get the current value of the board
-		# If we have reached the target depth, return the board value immediately
-		if current_depth >= target_depth:
+	def __solve_recurse(
+		self,
+		player: PieceColour,
+		depth: int,
+		alpha: int,
+		beta: int,
+	) -> int:
+		# Base case: leaf node
+		if depth == 0:
 			return self.get_state_value(player)
 
-		# If we have not reached the target depth, generate a list of moves that the active player could make.
-		move_list = self.get_moves()
-		# Initialize an array of scores for each move
-		move_scores = np.zeros(len(move_list))
-		# Iterate through all moves
-		for i, m in enumerate(move_list):
-			move_scores[i] = self.with_move(m).__solve_recurse(player, target_depth, current_depth + 1)
+		best = -INF
 
-		# Return the score of the move with the worst possible outcome
-		return move_scores.min()
+		for move in self.get_moves():
+			child = self.with_move(move)
+			score = -child.__solve_recurse(
+				player,
+				depth - 1,
+				-beta,
+				-alpha,
+			)
+
+			if score > best:
+				best = score
+
+			if score > alpha:
+				alpha = score
+
+			if alpha >= beta:
+				break  # beta cutoff
+
+		return best
 
 	@staticmethod
 	def idx_from_rank_and_file(rank: int, file: int) -> int:
