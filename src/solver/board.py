@@ -482,16 +482,18 @@ class Board:
 		alpha: int,
 		beta: int,
 	) -> int:
-		# Null move pruning
-		if depth >= 3 and not self.is_in_check():
-			null_score = -self.__solve_recurse(
-				player,
-				depth - 1 - 2,  # Reduce depth more aggressively
-				-beta,
-				-beta + 1,
-			)
-			if null_score >= beta:
-				return beta
+		# Disable null move pruning if there are few pieces left
+		if not self.is_endgame():
+			# Null move pruning
+			if depth >= 4 and not self.is_in_check():
+				null_score = -self.__solve_recurse(
+					player,
+					depth - 1 - 2,  # Reduce depth more aggressively
+					-beta,
+					-beta + 1,
+				)
+				if null_score >= beta:
+					return beta
 
 		# Base case: leaf node
 		if depth == 0:
@@ -571,6 +573,19 @@ class Board:
 				# King moves one square in any direction
 				return dx <= 1 and dy <= 1
 		return False
+
+	def is_endgame(self) -> bool:
+		"""Check if the game is in an endgame phase (few pieces left)."""
+		piece_count = 0
+		for idx in range(128):
+			if ChessPiece.is_piece(self.__board[idx]):
+				piece_count += 1
+				# Early exit if we already have counted enough pieces
+				if (
+					piece_count >= 10
+				):  # This is arbitrary but reasonable to still maintain speed but still play a good endgame
+					return False
+		return True
 
 	@staticmethod
 	def idx_from_rank_and_file(rank: int, file: int) -> int:
