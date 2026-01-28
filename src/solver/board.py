@@ -482,6 +482,17 @@ class Board:
 		alpha: int,
 		beta: int,
 	) -> int:
+		# Null move pruning
+		if depth >= 3 and not self.is_in_check():
+			null_score = -self.__solve_recurse(
+				player,
+				depth - 1 - 2,  # Reduce depth more aggressively
+				-beta,
+				-beta + 1,
+			)
+			if null_score >= beta:
+				return beta
+
 		# Base case: leaf node
 		if depth == 0:
 			return self.get_state_value(player)
@@ -507,6 +518,59 @@ class Board:
 				break  # beta cutoff
 
 		return best
+
+	def is_in_check(self) -> bool:
+		"""Check if the current player is in check."""
+		# Find king position
+		king_idx = None
+		for idx in range(128):
+			if ChessPiece.is_piece(self.__board[idx]):
+				piece_colour, piece_type = ChessPiece.decode_piece(self.__board[idx])
+				if piece_type == PieceType.KING and piece_colour == self.__active_move:
+					king_idx = idx
+					break
+
+		if king_idx is None:
+			return False
+
+		# Check if any opponent piece can capture the king
+		opponent_colour = PieceColour.BLACK if self.__active_move == PieceColour.WHITE else PieceColour.WHITE
+		for idx in range(128):
+			if ChessPiece.is_piece(self.__board[idx]):
+				piece_colour, piece_type = ChessPiece.decode_piece(self.__board[idx])
+				if piece_colour == opponent_colour and self.is_attacking(king_idx, idx, piece_type):
+					return True
+
+		return False
+
+	def is_attacking(self, king_idx: int, attacker_idx: int, attacker_type: PieceType) -> bool:
+		"""Check if a piece at attacker_idx can attack king at king_idx."""
+		# Simplified attack detection
+		dx = abs(king_idx - attacker_idx)
+		dy = abs((king_idx >> 4) - (attacker_idx >> 4))
+		dx %= 16
+		dy %= 8
+
+		match attacker_type:
+			case PieceType.PAWN:
+				# Pawn attacks diagonally
+				return dx == 1 and dy == 1
+			case PieceType.KNIGHT:
+				# Knight moves in L-ish-shape
+				return (dx == 2 and dy == 1) or (dx == 1 and dy == 2)
+			case PieceType.BISHOP:
+				# Bishop moves diagonally
+				return dx == dy
+			case PieceType.ROOK:
+				# Rook moves orthogonally
+				return dx == 0 or dy == 0
+			case PieceType.QUEEN:
+				# Queen moves like rook or bishop
+				return dx == dy or dx == 0 or dy == 0
+			case PieceType.KING:
+				# King moves one square in any direction
+				return dx <= 1 and dy <= 1
+		return False
 
 	@staticmethod
 	def idx_from_rank_and_file(rank: int, file: int) -> int:
