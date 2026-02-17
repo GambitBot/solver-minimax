@@ -6,6 +6,7 @@ import numpy as np
 
 from .piece import ChessPiece, PieceColour, PieceType
 
+INF = 10**9
 DEFAULT_PIECETYPE_WEIGHTS = {
 	PieceType.KING: 100000,
 	PieceType.QUEEN: 900,
@@ -25,6 +26,7 @@ class ChessMove:
 	promotion: PieceType | None
 	capture: int | None
 	enpassant: bool
+	score: float
 
 	def __init__(
 		self,
@@ -35,6 +37,7 @@ class ChessMove:
 		promotion: PieceType | None = None,
 		capture: int | None = None,
 		enpassant: bool = False,
+		score: float = -float('inf'),
 	):
 		"""Initializes a move"""
 		self.piece = piece
@@ -43,16 +46,17 @@ class ChessMove:
 		self.promotion = promotion
 		self.capture = capture
 		self.enpassant = enpassant
+		self.score = score
 
 	def __str__(self) -> str:
 		"""Return a string representation of a move."""
-		s = f"Piece: {ChessPiece.to_string(self.piece)} | Move: {Board.idx_to_square(self.idx_from)}{Board.idx_to_square(self.idx_to)}"
+		s = f'Piece: {ChessPiece.to_string(self.piece)} | Move: {Board.idx_to_square(self.idx_from)}{Board.idx_to_square(self.idx_to)}'
 		if self.capture is not None:
-			s += " Capture"
+			s += ' Capture'
 		if self.enpassant:
-			s += " en-passant"
+			s += ' en-passant'
 		if self.promotion is not None:
-			s += f" | Promotion: {ChessPiece.to_string(np.uint8(self.promotion))}"
+			s += f' | Promotion: {ChessPiece.to_string(np.uint8(self.promotion))}'
 		return s
 
 
@@ -94,22 +98,22 @@ class Board:
 
 	def __str__(self) -> str:
 		"""Returns a string representation of the board state"""
-		s = " |abcdefgh\n-+--------"
+		s = ' |abcdefgh\n-+--------'
 		# Ranks count down from the top of the board
 		for rank in reversed(range(0, 8)):
 			# Put a row header for each rank
-			s += f"\n{rank + 1}|"
+			s += f'\n{rank + 1}|'
 			for file in range(0, 8):
 				idx = Board.idx_from_rank_and_file(rank, file)
 				# If the index is the en-passant square, place an asterisk
 				if idx == self.__enpassant:
-					s += "*"
+					s += '*'
 				# If the index holds a chess piece, use its FEN string representation
 				elif ChessPiece.is_piece(self.__board[idx]):
 					s += ChessPiece.to_FEN(self.__board[idx])
 				# Otherwise, use an empty space
 				else:
-					s += "."
+					s += '.'
 		return s
 
 	def reset(self) -> None:
@@ -137,7 +141,7 @@ class Board:
 		# Loading an FEN string necessitates clearing the existing board state
 		self.__board[:] = 0
 		# Split the FEN string up into segments to facilitate parsing
-		fen_segments: list[str] = fen.split(" ")
+		fen_segments: list[str] = fen.split(' ')
 		# These do not exactly match with the real ranks and files used
 		# on a chess board, but they work better for computer calcualtion
 		rank = 7
@@ -145,10 +149,10 @@ class Board:
 		# Iterate over the beginning of the FEN string to fill the board
 		for char in fen_segments[0]:
 			# If the character is a slash, move to the next rank
-			if char == "/":
+			if char == '/':
 				# If the file was not already at the end of the rank, throw an error
 				if file < 8:
-					raise ValueError(f"Error parsing FEN string. Missing squares for rank {rank + 1}.")
+					raise ValueError(f'Error parsing FEN string. Missing squares for rank {rank + 1}.')
 				# Reset the file, and decrement the rank
 				rank -= 1
 				file = 0
@@ -157,7 +161,7 @@ class Board:
 			elif char.isnumeric():
 				file += int(char)
 				if file > 8:
-					raise ValueError(f"Error parsing FEN string. Rank {rank + 1} contains too many squares.")
+					raise ValueError(f'Error parsing FEN string. Rank {rank + 1} contains too many squares.')
 				continue
 			# Character is a letter, which indicates a piece
 			else:
@@ -172,17 +176,17 @@ class Board:
 			return
 
 		if len(fen_segments) != 6:
-			raise ValueError(f"Provided FEN string has {len(fen_segments)} segments, expected 6 segments.")
+			raise ValueError(f'Provided FEN string has {len(fen_segments)} segments, expected 6 segments.')
 
 		# By this point we know that we have an FEN string with a correct length.
 
 		# Determine the active move
-		self.__active_move = PieceColour.WHITE if fen_segments[1].casefold() == "w" else PieceColour.BLACK
+		self.__active_move = PieceColour.WHITE if fen_segments[1].casefold() == 'w' else PieceColour.BLACK
 
 		# TODO: Implement castling checks
 
 		# Pending en-passant status
-		if fen_segments[3] != "-":
+		if fen_segments[3] != '-':
 			self.__enpassant = Board.idx_from_square(fen_segments[3])
 
 		# Halfmove clock and total moves
@@ -378,7 +382,7 @@ class Board:
 
 		return moves
 
-	def with_move(self, move: ChessMove) -> "Board":
+	def with_move(self, move: ChessMove) -> 'Board':
 		"""Returns a new instance of the board with a given chess move applied.
 
 		Parameters
@@ -451,33 +455,137 @@ class Board:
 		"""
 		# Generate a list of moves that we could make
 		move_list = self.get_moves()
-		# Initialize an array of scores for each move
-		move_scores = np.zeros(len(move_list))
+
+		best_move = move_list[0]
+
 		# For each move, recursively solve for the worst possible outcome, up to the target depth
-		for i, m in enumerate(move_list):
-			move_scores[i] = self.with_move(m).__solve_recurse(self.__active_move, target_depth, 1)
+		for depth in range(1, target_depth + 1):
+			best_score = -INF
+			best_idx = 0
+			alpha = -INF
+			for i, m in enumerate(move_list):
+				score = self.with_move(m).__solve_recurse(self.__active_move, depth, -INF, -alpha)
+				if score > best_score:
+					best_score = score
+				if score > alpha:
+					alpha = score
+					best_move = m
+					best_idx = i
+			move_list[0], move_list[best_idx] = (move_list[best_idx], move_list[0])
 
-		# Find the index of the move with the least-worst possible outcome
-		move_idx = move_scores.argmax()
-		# Return the move with the best overall score
-		return move_list[move_idx]
+		return best_move
 
-	def __solve_recurse(self, player: PieceColour, target_depth: int, current_depth: int) -> int:
-		# Get the current value of the board
-		# If we have reached the target depth, return the board value immediately
-		if current_depth >= target_depth:
+	def __solve_recurse(
+		self,
+		player: PieceColour,
+		depth: int,
+		alpha: int,
+		beta: int,
+	) -> int:
+		# Disable null move pruning if there are few pieces left
+		if not self.is_endgame():
+			# Null move pruning
+			if depth >= 4 and not self.is_in_check():
+				null_score = -self.__solve_recurse(
+					player,
+					depth - 1 - 2,  # Reduce depth more aggressively
+					-beta,
+					-beta + 1,
+				)
+				if null_score >= beta:
+					return beta
+
+		# Base case: leaf node
+		if depth == 0:
 			return self.get_state_value(player)
 
-		# If we have not reached the target depth, generate a list of moves that the active player could make.
-		move_list = self.get_moves()
-		# Initialize an array of scores for each move
-		move_scores = np.zeros(len(move_list))
-		# Iterate through all moves
-		for i, m in enumerate(move_list):
-			move_scores[i] = self.with_move(m).__solve_recurse(player, target_depth, current_depth + 1)
+		best = -INF
 
-		# Return the score of the move with the worst possible outcome
-		return move_scores.min()
+		for move in self.get_moves():
+			child = self.with_move(move)
+			score = -child.__solve_recurse(
+				player,
+				depth - 1,
+				-beta,
+				-alpha,
+			)
+
+			if score > best:
+				best = score
+
+			if score > alpha:
+				alpha = score
+
+			if alpha >= beta:
+				break  # beta cutoff
+
+		return best
+
+	def is_in_check(self) -> bool:
+		"""Check if the current player is in check."""
+		# Find king position
+		king_idx = None
+		for idx in range(128):
+			if ChessPiece.is_piece(self.__board[idx]):
+				piece_colour, piece_type = ChessPiece.decode_piece(self.__board[idx])
+				if piece_type == PieceType.KING and piece_colour == self.__active_move:
+					king_idx = idx
+					break
+
+		if king_idx is None:
+			return False
+
+		# Check if any opponent piece can capture the king
+		opponent_colour = PieceColour.BLACK if self.__active_move == PieceColour.WHITE else PieceColour.WHITE
+		for idx in range(128):
+			if ChessPiece.is_piece(self.__board[idx]):
+				piece_colour, piece_type = ChessPiece.decode_piece(self.__board[idx])
+				if piece_colour == opponent_colour and self.is_attacking(king_idx, idx, piece_type):
+					return True
+
+		return False
+
+	def is_attacking(self, king_idx: int, attacker_idx: int, attacker_type: PieceType) -> bool:
+		"""Check if a piece at attacker_idx can attack king at king_idx."""
+		# Simplified attack detection
+		dx = abs(king_idx - attacker_idx)
+		dy = abs((king_idx >> 4) - (attacker_idx >> 4))
+		dx %= 16
+		dy %= 8
+
+		match attacker_type:
+			case PieceType.PAWN:
+				# Pawn attacks diagonally
+				return dx == 1 and dy == 1
+			case PieceType.KNIGHT:
+				# Knight moves in L-ish-shape
+				return (dx == 2 and dy == 1) or (dx == 1 and dy == 2)
+			case PieceType.BISHOP:
+				# Bishop moves diagonally
+				return dx == dy
+			case PieceType.ROOK:
+				# Rook moves orthogonally
+				return dx == 0 or dy == 0
+			case PieceType.QUEEN:
+				# Queen moves like rook or bishop
+				return dx == dy or dx == 0 or dy == 0
+			case PieceType.KING:
+				# King moves one square in any direction
+				return dx <= 1 and dy <= 1
+		return False
+
+	def is_endgame(self) -> bool:
+		"""Check if the game is in an endgame phase (few pieces left)."""
+		piece_count = 0
+		for idx in range(128):
+			if ChessPiece.is_piece(self.__board[idx]):
+				piece_count += 1
+				# Early exit if we already have counted enough pieces
+				if (
+					piece_count >= 10
+				):  # This is arbitrary but reasonable to still maintain speed but still play a good endgame
+					return False
+		return True
 
 	@staticmethod
 	def idx_from_rank_and_file(rank: int, file: int) -> int:
@@ -517,11 +625,11 @@ class Board:
 			Invalid chess square provided
 		"""
 		if (len(square) != 2) or not square[1].isnumeric():
-			raise ValueError(f"Invalid chess square {square}")
+			raise ValueError(f'Invalid chess square {square}')
 
 		idx = ((int(square[1]) - 1) << 4) + (ord(square[0].casefold()) - 97)
 		if (idx < 0) or (idx > 127) or (idx & 0x88):
-			raise ValueError(f"Invalid chess square {square}")
+			raise ValueError(f'Invalid chess square {square}')
 
 		return idx
 
@@ -572,4 +680,4 @@ class Board:
 			Chess square string
 		"""
 		rank, file = Board.idx_to_rank_and_file(idx)
-		return f"{chr(97 + file)}{rank + 1}"
+		return f'{chr(97 + file)}{rank + 1}'
