@@ -57,4 +57,5 @@ select = [
 "tests/**" = ["D"]
 
 [tool.ruff.format]
+quote-style = "double"
 indent-style = "tab"
