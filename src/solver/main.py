@@ -10,7 +10,7 @@ from solver.server_base import InboundServer, OutboundSender
 
 from .board import Board
 
-LOGGING_ID = "solver"
+LOGGING_ID = 'solver'
 IN_PORT: int = SENSING_TO_SOLVING_SOCKET
 OUT_PORT: int = SOLVING_TO_MOVEMENT_SOCKET
 
@@ -19,8 +19,8 @@ def configure_logging() -> None:
 	"""Configure logging for the solver"""
 	logging.basicConfig(
 		level=logging.INFO,
-		format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-		datefmt="%Y-%m-%d %H:%M:%S",
+		format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+		datefmt='%Y-%m-%d %H:%M:%S',
 	)
 
 
@@ -42,7 +42,7 @@ def solve_fen(fen: str, depth: int = 4) -> str:
 	move = board.solve(depth)
 	elapsed = time.time() - start
 
-	logging.getLogger("solver").info("Solved in %.3fs | Move: %s", elapsed, move)
+	logging.getLogger('solver').info('Solved in %.3fs | Move: %s', elapsed, move)
 
 	return str(move)
 
@@ -57,33 +57,33 @@ class SolvingServer(InboundServer):
 
 		while True:
 			conn, addr = self._sock.accept()  # type: ignore
-			self._log.info("Listening from %s:%d", *addr)
+			self._log.info('Listening from %s:%d', *addr)
 
 			with conn:
 				data: bytes = conn.recv(4096)
 				if not data:
 					continue
 
-				fen: str = data.decode("utf-8").strip()
-				self._log.info("Received FEN: %s", fen)
+				fen: str = data.decode('utf-8').strip()
+				self._log.info('Received FEN: %s', fen)
 
 				try:
 					move: str = solve_fen(fen)
 					outbound.send(move)
 				except Exception:
-					self._log.exception("Solver failure")
+					self._log.exception('Solver failure')
 					try:
-						outbound.send("ERROR")
+						outbound.send('ERROR')
 					except Exception:
-						self._log.exception("Failed to send error result")
+						self._log.exception('Failed to send error result')
 
 
 def main() -> None:
 	"""Initialize and run the solver server."""
 	configure_logging()
 
-	outbound: OutboundSender = OutboundSender(HOST, OUT_PORT)
-	inbound: SolvingServer = SolvingServer(HOST, IN_PORT)
+	outbound: OutboundSender = OutboundSender(HOST, OUT_PORT, 2, LOGGING_ID)
+	inbound: SolvingServer = SolvingServer(HOST, IN_PORT, LOGGING_ID)
 
 	try:
 		inbound.start()
@@ -93,5 +93,5 @@ def main() -> None:
 		outbound.close()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
 	main()
