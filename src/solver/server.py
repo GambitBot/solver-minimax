@@ -7,7 +7,7 @@ from typing import Callable
 
 from .board import Board
 
-_log = logging.getLogger()
+_log = logging.getLogger(__name__)
 
 
 class GambitServer:
@@ -65,7 +65,7 @@ class GambitServer:
 		# TODO: Add a signal handler here to stop everything gracefully
 		try:
 			while True:
-				events = self.__selector.select()
+				events = self.__selector.select(0.5)
 				for key, mask in events:
 					callback: Callable = key.data
 					callback(key.fileobj)
