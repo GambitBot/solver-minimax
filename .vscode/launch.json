@@ -9,6 +9,15 @@
 			"type": "debugpy",
 			"request": "launch",
 			"module": "solver"
+		},
+		{
+			"name": "Debug Solver Server",
+			"type": "debugpy",
+			"request": "launch",
+			"module": "solver",
+			"args": [
+				"-s"
+			]
 		}
 	]
 }
