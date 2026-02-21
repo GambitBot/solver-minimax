@@ -247,12 +247,13 @@ class Board:
 				if pieceType == PieceType.KING:
 					if pieceColour == PieceColour.WHITE:
 						# If we found the white king, the board is in normal orientation.
-						_log.info("Detected Gambit playing as white")
+						_log.info("Detected Gambit playing as White")
 						self.__reversed = False
 					else:
 						# If we found the black king, the board is in reverse orientation.
-						_log.info("Detected Gambit playing as black")
+						_log.info("Detected Gambit playing as Black")
 						self.__reversed = True
+					break
 
 			# TODO: Add castling calculations here
 
@@ -551,6 +552,9 @@ class Board:
 		ChessMove
 			Optimal chess move
 		"""
+		# If the active player is not gambit, throw a warning here
+		if self.__active_move != self.get_gambit_colour():
+			_log.warning(f"Solving move for {self.__active_move} while Gambit is playing as {self.get_gambit_colour()}")
 		# Generate a list of moves that we could make
 		move_list = self.get_moves()
 
@@ -704,6 +708,21 @@ class Board:
 			Active player colour
 		"""
 		return self.__active_move
+
+	def get_gambit_colour(self) -> PieceColour:
+		"""Returns the player colour for Gambit.
+
+		Returns
+		-------
+		PieceColour
+			Gambit's player colour
+		"""
+		if not self.__initialized:
+			return PieceColour.NONE
+		elif not self.__reversed:
+			return PieceColour.WHITE
+		else:
+			return PieceColour.BLACK
 
 	@staticmethod
 	def idx_from_rank_and_file(rank: int, file: int) -> int:

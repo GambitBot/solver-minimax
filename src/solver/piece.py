@@ -17,6 +17,16 @@ class PieceColour(IntEnum):
 	BLACK = 8
 	WHITE = 16
 
+	def __str__(self) -> str:
+		"""Returns the string representation of the piece colour.
+
+		Returns
+		-------
+		str
+			String represnetation of the piece colour.
+		"""
+		return self.name
+
 
 class PieceType(IntEnum):
 	"""Chess piece type"""

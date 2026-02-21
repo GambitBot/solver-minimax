@@ -30,7 +30,7 @@ class GambitServer:
 	def __socket_accept(self, sock: socket.socket) -> None:
 		assert self.__selector is not None  # This makes the type-checker happy
 		conn, addr = sock.accept()  # Socket should be ready if triggered by the selector
-		_log.info(f"Accepted connection: {conn} from: {addr}")
+		_log.debug(f"Accepted connection: {conn} from: {addr}")
 		conn.setblocking(False)
 		# Create a buffer for the connection
 		self.__buffers[conn] = bytearray()
@@ -44,12 +44,12 @@ class GambitServer:
 		data = conn.recv(1000)
 		# TODO: Have this actually update the board state instead of just printing to console
 		if data:
-			_log.info(f"Received data: {repr(data)} from: {conn}")
+			_log.debug(f"Received data: {repr(data)} from: {conn}")
 			self.__buffers[conn] += data
 		else:
 			# No data. Socket is closed (or other side shut down sending).
 			# Process the received data for that socket
-			_log.info(f"Closing socket: {conn}")
+			_log.debug(f"Closing socket: {conn}")
 			# Send a zero response to indicate OK
 			conn.send("0".encode())
 			# Shut down the socket while we close it down
@@ -73,18 +73,32 @@ class GambitServer:
 		# Strip any newline characters from the end of the data
 		data = data.strip("\r\n")
 		match command:
+			case "reset":
+				self.__command_reset()
 			case "solve":
-				self.__command_solve(data)
+				self.__command_solve()
 			case "update":
 				self.__command_update(data)
+			case "debug_solve":
+				self.__command_debug_solve(data)
 			case "debug_status":
 				self.__command_debug_status()
 			case _:
 				_log.warning(f"Received invalid command: {command}")
 
-	def __command_solve(self, data: str) -> None:
+	def __command_reset(self) -> None:
+		_log.info("Resetting board state")
+		self.board.reset()
+
+	def __command_solve(self) -> None:
+		_log.info("Solving board state")
+		move = self.board.solve(4)  # TODO: Make this not hardcoded
+		_log.info(f"Selected move: {move}")
+		# TODO: Have this send the result to the movement module
+
+	def __command_debug_solve(self, data: str) -> None:
 		# TODO: Calculate proper turn, castle, and other values for the FEN string
-		data += " w KQkq - 0 1"
+		# data += " w KQkq - 0 1"
 		_log.info(f"Solving for board state: {data}")
 		self.board.load_fen_string(data)
 		# TODO: Don't use a hardcoded search depth
@@ -95,17 +109,14 @@ class GambitServer:
 
 	def __command_update(self, data: str) -> None:
 		_log.info(f"Updating board with state: {data}")
-		print("Existing board")
-		print(self.board)
 		self.board.update_board(data)
-		print("Updated board")
-		print(self.board)
 
 	def __command_debug_status(self) -> None:
 		print("Current board state:")
 		print(self.board)
 		print(f"Board initialized: {self.board.is_initialized()}")
 		print(f"Active player: {repr(self.board.get_active_move())}")
+		print(f"Gambit playing as: {repr(self.board.get_gambit_colour())}")
 
 	def run(self) -> None:
 		"""Runs the Gambit Solver IPC server.
