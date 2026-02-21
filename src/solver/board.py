@@ -88,6 +88,8 @@ class Board:
 		"""Initializes an empty chess board."""
 		# Initialize a blank board using the 0x88 board format
 		self.__board = np.zeros(128, dtype=np.uint8)
+		# Initialize the active move as none
+		self.__active_move = PieceColour.NONE
 		# Set default values for the move counts and enpassant
 		self.__move_count = 0
 		self.__halfmove_clock = 0
@@ -122,6 +124,7 @@ class Board:
 	def reset(self) -> None:
 		"""Resets the board to an initial state."""
 		self.__board[:] = 0
+		self.__active_move = PieceColour.NONE
 		self.__move_count = 0
 		self.__halfmove_clock = 0
 		self.__enpassant = None
@@ -231,6 +234,9 @@ class Board:
 			# If the board is not initialized, we can just apply
 			# the board state directly without doing any comparisons.
 			self.__parse_fen_board_state(boardstate, self.__board)
+
+			# White always moves first
+			self.__active_move = PieceColour.WHITE
 
 			# We now need to calculate which colour Gambit is playing as
 			# For this, we will look at the rows closest to Gambit, and select
@@ -678,6 +684,26 @@ class Board:
 				):  # This is arbitrary but reasonable to still maintain speed but still play a good endgame
 					return False
 		return True
+
+	def is_initialized(self) -> bool:
+		"""Checks if the board is considered to be initialized.
+
+		Returns
+		-------
+		bool
+			Board is initialized
+		"""
+		return self.__initialized
+
+	def get_active_move(self) -> PieceColour:
+		"""Returns the active player.
+
+		Returns
+		-------
+		PieceColour
+			Active player colour
+		"""
+		return self.__active_move
 
 	@staticmethod
 	def idx_from_rank_and_file(rank: int, file: int) -> int:

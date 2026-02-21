@@ -75,6 +75,10 @@ class GambitServer:
 		match command:
 			case "solve":
 				self.__command_solve(data)
+			case "update":
+				self.__command_update(data)
+			case "debug_status":
+				self.__command_debug_status()
 			case _:
 				_log.warning(f"Received invalid command: {command}")
 
@@ -88,6 +92,20 @@ class GambitServer:
 		# Print results of the solve
 		# TODO: Remove this part and add code to send to the movement module
 		print(f"Optimal move: {move}")
+
+	def __command_update(self, data: str) -> None:
+		_log.info(f"Updating board with state: {data}")
+		print("Existing board")
+		print(self.board)
+		self.board.update_board(data)
+		print("Updated board")
+		print(self.board)
+
+	def __command_debug_status(self) -> None:
+		print("Current board state:")
+		print(self.board)
+		print(f"Board initialized: {self.board.is_initialized()}")
+		print(f"Active player: {repr(self.board.get_active_move())}")
 
 	def run(self) -> None:
 		"""Runs the Gambit Solver IPC server.
