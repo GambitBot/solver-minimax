@@ -63,7 +63,11 @@ class GambitServer:
 
 	def __handle_command(self, commandstr: str) -> None:
 		_log.info(f"Executing command: {commandstr}")
-		command, data = commandstr.split(" ", maxsplit=1)
+		try:
+			command, data = commandstr.split(" ", maxsplit=1)
+		except ValueError:
+			command = commandstr
+			data = ""
 		# Casefold the command for comparison safety
 		command = command.casefold()
 		# Strip any newline characters from the end of the data
