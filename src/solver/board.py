@@ -1,5 +1,6 @@
 """Chess board classes"""
 
+import logging
 from collections.abc import Iterable
 
 import numpy as np
@@ -15,6 +16,8 @@ DEFAULT_PIECETYPE_WEIGHTS = {
 	PieceType.KNIGHT: 300,
 	PieceType.PAWN: 100,
 }
+
+_log = logging.getLogger(__name__)
 
 
 class ChessMove:
@@ -142,33 +145,9 @@ class Board:
 		self.__board[:] = 0
 		# Split the FEN string up into segments to facilitate parsing
 		fen_segments: list[str] = fen.split(" ")
-		# These do not exactly match with the real ranks and files used
-		# on a chess board, but they work better for computer calcualtion
-		rank = 7
-		file = 0
-		# Iterate over the beginning of the FEN string to fill the board
-		for char in fen_segments[0]:
-			# If the character is a slash, move to the next rank
-			if char == "/":
-				# If the file was not already at the end of the rank, throw an error
-				if file < 8:
-					raise ValueError(f"Error parsing FEN string. Missing squares for rank {rank + 1}.")
-				# Reset the file, and decrement the rank
-				rank -= 1
-				file = 0
-				continue
-			# If the character is a number, move the file over by that value
-			elif char.isnumeric():
-				file += int(char)
-				if file > 8:
-					raise ValueError(f"Error parsing FEN string. Rank {rank + 1} contains too many squares.")
-				continue
-			# Character is a letter, which indicates a piece
-			else:
-				# Add the piece to the board
-				self.__board[Board.idx_from_rank_and_file(rank, file)] = ChessPiece.from_FEN(char)
-				# Increment the file by one
-				file += 1
+
+		# Parse the FEN board state
+		self.__parse_fen_board_state(fen_segments[0], self.__board)
 
 		# If we only had a partial FEN string, end here
 		# TODO: update move counts and en-passant status from this
@@ -192,6 +171,119 @@ class Board:
 		# Halfmove clock and total moves
 		self.__halfmove_clock = int(fen_segments[4])
 		self.__move_count = int(fen_segments[5])
+
+	def update_board(self, boardstate: str) -> None:
+		"""Parses the piece location part of the FEN string.
+		Applies updates to the board state accordingly.
+
+		Parameters
+		----------
+		boardstate : str
+			Partial board-state component of an FEN string
+		"""
+
+		if self.__initialized:
+			_log.info(f"Updating board state using partial FEN: {boardstate}")
+			# If the board is initialized, we need to compare the board new
+			# board state to the previous board state to detect changes to
+			# castling requirements, halfmove clock, etc.
+			tempboard = np.zeros(128, dtype=np.uint8)
+			# Parse the partial board state to the temporary board
+			self.__parse_fen_board_state(boardstate, tempboard)
+			# If the number of pieces on the board has changed, we need to reset
+			# the halfmove clock
+			if np.count_nonzero(self.__board) != np.count_nonzero(tempboard):
+				self.__halfmove_clock = 0
+			# Applying an update to the board means that it should now be Gambit's
+			# turn to make a move.
+			if self.__reversed:
+				self.__active_move = PieceColour.BLACK
+			else:
+				# When black makes a move, the total move counter is increased
+				self.__move_count += 1
+				self.__active_move = PieceColour.WHITE
+
+			# Check for differences between the two boards
+			board_diff = np.logical_not(self.__board == tempboard)
+			board_diff_idx: np.ndarray[tuple[int], np.dtype[np.int64]] = np.flatnonzero(board_diff)
+			# Clear the en-passant index for now.
+			self.__enpassant = None
+			# Check the conditions for en-passant. We must meet the following conditions:
+			#     - There must be exactly two difference indices
+			#     - The two indices must be exactly 32 apart to account for moving two rows forward
+			#     - On the old board, one index must contain a pawn, and the other must be empty.
+			if len(board_diff_idx == 2) and abs(board_diff_idx[0] - board_diff_idx[1]) == 32:
+				_, pieceType1 = ChessPiece.decode_piece(self.__board[board_diff_idx[0]])  # type: ignore
+				_, pieceType2 = ChessPiece.decode_piece(self.__board[board_diff_idx[1]])  # type: ignore
+				if (pieceType1 == PieceType.PAWN and pieceType2 == PieceType.NONE) or (
+					pieceType1 == PieceType.NONE and pieceType2 == PieceType.PAWN
+				):
+					# En-Passant detected. Set the En-Passant index to the gap between the two indices
+					self.__enpassant = int(board_diff_idx[0] + ((board_diff_idx[1] - board_diff_idx[0]) / 2))
+
+			# TODO: Add castling calculations here
+
+			# Assign the new board state to the board
+			np.copyto(self.__board, tempboard)
+
+		else:
+			_log.info(f"Initializing board state using partial FEN: {boardstate}")
+			# If the board is not initialized, we can just apply
+			# the board state directly without doing any comparisons.
+			self.__parse_fen_board_state(boardstate, self.__board)
+
+			# We now need to calculate which colour Gambit is playing as
+			# For this, we will look at the rows closest to Gambit, and select
+			# the colour of the first king that we find.
+			for i in range(len(self.__board)):
+				pieceColour, pieceType = ChessPiece.decode_piece(self.__board[i])
+				# If we find a king
+				if pieceType == PieceType.KING:
+					if pieceColour == PieceColour.WHITE:
+						# If we found the white king, the board is in normal orientation.
+						_log.info("Detected Gambit playing as white")
+						self.__reversed = False
+					else:
+						# If we found the black king, the board is in reverse orientation.
+						_log.info("Detected Gambit playing as black")
+						self.__reversed = True
+
+			# TODO: Add castling calculations here
+
+			# Mark the board as initialized once we have completed setup.
+			self.__initialized = True
+
+	def __parse_fen_board_state(self, boardstate: str, board: np.ndarray[tuple[int], np.dtype[np.uint8]]) -> None:
+		# We will always parse board states from the same point of view
+		# of the board, regardless of which colour starts on each side.
+		# These do not exactly match with the real ranks and files used
+		# on a chess board, but they work better for computer calcualtion
+		rank = 7
+		file = 0
+
+		# Iterate over the beginning of the FEN string to fill the board
+		for char in boardstate:
+			# If the character is a slash, move to the next rank
+			if char == "/":
+				# If the file was not already at the end of the rank, throw an error
+				if file < 8:
+					raise ValueError(f"Error parsing FEN string. Missing squares for rank {rank + 1}.")
+				# Reset the file, and decrement the rank
+				rank -= 1
+				file = 0
+				continue
+			# If the character is a number, move the file over by that value
+			elif char.isnumeric():
+				file += int(char)
+				if file > 8:
+					raise ValueError(f"Error parsing FEN string. Rank {rank + 1} contains too many squares.")
+				continue
+			# Character is a letter, which indicates a piece
+			else:
+				# Add the piece to the board
+				board[Board.idx_from_rank_and_file(rank, file)] = ChessPiece.from_FEN(char)
+				# Increment the file by one
+				file += 1
 
 	def get_state_value(self, player: PieceColour | None = None) -> int:
 		"""Return the value of the current board state for the current move.
