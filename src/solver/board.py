@@ -197,6 +197,9 @@ class Board:
 			# the halfmove clock
 			if np.count_nonzero(self.__board) != np.count_nonzero(tempboard):
 				self.__halfmove_clock = 0
+			else:
+				# Otherwise, increase the halfmove clock by 1
+				self.__halfmove_clock += 1
 			# Applying an update to the board means that it should now be Gambit's
 			# turn to make a move.
 			if self.__reversed:
