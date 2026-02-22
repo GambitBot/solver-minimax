@@ -4,11 +4,17 @@ import argparse
 import socket
 
 
+class ArgNamespace(argparse.Namespace):
+	"""Argument parser namespace for type hinting"""
+
+	port: str
+
+
 def main() -> None:
 	"""Main function"""
 	parser = argparse.ArgumentParser()
 	parser.add_argument("-p", "--port", action="store", dest="port", help="Destination port")
-	args = parser.parse_args()
+	args = parser.parse_args(namespace=ArgNamespace())
 
 	dest_ip = "localhost"
 	dest_port: int = int(args.port)
