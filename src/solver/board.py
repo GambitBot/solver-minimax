@@ -83,6 +83,9 @@ class Board:
 	__reversed: bool
 	# If the board is currently "initialized", or if it is reset
 	__initialized: bool
+	# Valid castling indices
+	__castle_white: list[int]
+	__castle_black: list[int]
 
 	def __init__(self):
 		"""Initializes an empty chess board."""
@@ -98,6 +101,9 @@ class Board:
 		self.__piecetype_weights = DEFAULT_PIECETYPE_WEIGHTS.copy()
 		# Set the default board orientation
 		self.__reversed = False
+		# Set up the castling lists
+		self.__castle_white = []
+		self.__castle_black = []
 		# Default the board into the reset state
 		self.__initialized = False
 
@@ -129,6 +135,8 @@ class Board:
 		self.__halfmove_clock = 0
 		self.__enpassant = None
 		self.__reversed = False
+		self.__castle_white = []
+		self.__castle_black = []
 		self.__initialized = False
 
 	def load_fen_string(self, fen: str) -> None:
@@ -215,7 +223,7 @@ class Board:
 			# Clear the en-passant index for now.
 			self.__enpassant = None
 			# Check the conditions for en-passant. We must meet the following conditions:
-			#     - There must be exactly two difference indices
+			#     - There must be exactly two difference indices (pawn moved from one location to another)
 			#     - The two indices must be exactly 32 apart to account for moving two rows forward
 			#     - On the old board, one index must contain a pawn, and the other must be empty.
 			if len(board_diff_idx == 2) and abs(board_diff_idx[0] - board_diff_idx[1]) == 32:
@@ -227,7 +235,22 @@ class Board:
 					# En-Passant detected. Set the En-Passant index to the gap between the two indices
 					self.__enpassant = int(board_diff_idx[0] + ((board_diff_idx[1] - board_diff_idx[0]) / 2))
 
-			# TODO: Add castling calculations here
+			# Check for moves that would violate castling validity
+			for i in board_diff_idx:
+				i = int(i)
+				pieceColour, pieceType = ChessPiece.decode_piece(self.__board[i])
+				# If one of the moved pieces was a king, clear all castling options
+				if pieceType == PieceType.KING:
+					if pieceColour == PieceColour.WHITE:
+						self.__castle_white.clear()
+					else:
+						self.__castle_black.clear()
+				# If one of the moved pieces was a rook, clear that castling index if present
+				elif pieceType == PieceType.ROOK:
+					if (pieceColour == PieceColour.WHITE) and (i in self.__castle_white):
+						self.__castle_white.remove(i)
+					elif (pieceColour == PieceColour.BLACK) and (i in self.__castle_black):
+						self.__castle_black.remove(i)
 
 			# Assign the new board state to the board
 			np.copyto(self.__board, tempboard)
@@ -258,7 +281,15 @@ class Board:
 						self.__reversed = True
 					break
 
-			# TODO: Add castling calculations here
+			# Look for the rooks for each player to set up the castling indices
+			# Rooks must start on the back row to be valid for castling
+			for i in tuple(range(0x00, 0x08)) + tuple(range(0x70, 0x78)):
+				pieceColour, pieceType = ChessPiece.decode_piece(self.__board[i])
+				if pieceType == PieceType.ROOK:
+					if pieceColour == PieceColour.WHITE:
+						self.__castle_white.append(i)
+					else:
+						self.__castle_black.append(i)
 
 			# Mark the board as initialized once we have completed setup.
 			self.__initialized = True
