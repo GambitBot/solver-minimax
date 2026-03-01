@@ -92,7 +92,7 @@ class GambitServer:
 
 	def __command_solve(self) -> None:
 		_log.info("Solving board state")
-		move = self.board.solve(4)  # TODO: Make this not hardcoded
+		move, _ = self.board.solve(4)  # TODO: Make this not hardcoded
 		_log.info(f"Selected move: {move}")
 		# TODO: Have this send the result to the movement module
 
@@ -102,7 +102,7 @@ class GambitServer:
 		_log.info(f"Solving for board state: {data}")
 		self.board.load_fen_string(data)
 		# TODO: Don't use a hardcoded search depth
-		move = self.board.solve(4)
+		move, _ = self.board.solve(4)
 		# Print results of the solve
 		# TODO: Remove this part and add code to send to the movement module
 		print(f"Optimal move: {move}")

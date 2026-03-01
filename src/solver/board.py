@@ -1,6 +1,7 @@
 """Chess board classes"""
 
 import logging
+import time
 from collections.abc import Iterable
 
 import numpy as np
@@ -669,45 +670,74 @@ class Board:
 
 		return new_board
 
-	def solve(self, target_depth: int) -> ChessMove:
+	def solve(
+		self, target_depth: int, target_time: float | None = None, max_time: float | None = None
+	) -> tuple[ChessMove, int]:
 		"""Calculates an optimal chess move to make.
 
-		Searches a specific depth in a move tree.
+		Searches up to a specific depth in a move tree.
+		If a target time is specified, the search will not begin a new search
+		after the target time has elapsed.
+		If a maximum time is specified, the search will end upon reaching
+		the maximum time.
 
 		Parameters
 		----------
 		target_depth : int
 			Target depth to search to.
+		max_time : float | None, optional
+			Maximum time to search for, by default None
 
 		Returns
 		-------
-		ChessMove
-			Optimal chess move
+		tuple[ChessMove, int]
+			Optimal chess move, search depth reached
 		"""
 		# If the active player is not gambit, throw a warning here
 		if self.__active_move != self.get_gambit_colour():
 			_log.warning(f"Solving move for {self.__active_move} while Gambit is playing as {self.get_gambit_colour()}")
 		# Generate a list of moves that we could make
 		move_list = self.get_moves()
+		# Initialize an array of scores for each move
+		move_scores = np.zeros(len(move_list), dtype=np.int32)
+		# Initialize an array to hold the move order
+		move_order = np.array(tuple(range(len(move_list))), dtype=np.int16)
 
-		best_move = move_list[0]
+		# Initialize the depth to avoid potential return errors
+		depth = 1
+
+		end_time = time.time() + target_time if target_time is not None else None
+		cut_time = time.time() + max_time if max_time is not None else None
 
 		# For each move, recursively solve for the worst possible outcome, up to the target depth
 		for depth in range(1, target_depth + 1):
-			best_score = -INF
-			best_idx = 0
+			_log.debug(f"Starting depth {depth} search")
+			# Initialize alpha to -infinity
 			alpha = -INF
-			for i, m in enumerate(move_list):
-				score = self.with_move(m).__solve_recurse(self.__active_move, depth, -INF, -alpha)
-				if score > best_score:
-					best_score = score
-				if score > alpha:
-					alpha = score
-					best_move = m
-					best_idx = i
-			move_list[0], move_list[best_idx] = (move_list[best_idx], move_list[0])
+			for i in move_order:
+				if cut_time is not None and time.time() > cut_time:
+					_log.debug("Maximum time exceeded for search. Stopping immediately.")
+					break
+				move_idx = move_order[i]
+				m = move_list[move_idx]
+				move_scores[move_idx] = self.with_move(m).__solve_recurse(self.__active_move, depth, -INF, -alpha)
+				if move_scores[move_idx] > alpha:
+					alpha = int(move_scores[move_idx])
 
-		return best_move
+			# Sort the move order list only if we have not exceeded the cut time
+			if cut_time is None or time.time() < cut_time:
+				move_order = move_scores.argsort()
+
+			# If we have exceeded the alotted time, break out of the loop
+			if end_time is not None and time.time() > end_time:
+				_log.debug(f"Target search time exceeded. Stopping search at depth {depth}.")
+				break
+
+		# If we exceeded the cut time, decrement the depth to report the accurate search depth
+		if cut_time is not None and time.time() > cut_time:
+			depth -= 1
+
+		return move_list[move_order[0]], depth
 
 	def __solve_recurse(
 		self,

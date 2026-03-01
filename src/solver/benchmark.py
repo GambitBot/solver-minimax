@@ -29,9 +29,11 @@ def benchmark() -> None:
 	for m in moves:
 		print(f"    {m}")
 
+	search_depth = 4
 	start_time = time.time()
-	print("Selecting an optimal move with depth 4")
-	move = b.solve(4)
+	print(f"Selecting an optimal move with depth {search_depth}")
+	move, depth = b.solve(search_depth, 5.0, 10.0)
+	print(f"Search completed to depth: {depth}")
 	print("Optimal move:")
 	print(f"    {move}")
 	end_time = time.time()
