@@ -626,6 +626,102 @@ class Board:
 
 		return best
 
+	def is_threatened(self, target_idx: int, attacker: PieceColour) -> bool:
+		"""Checks if a piece from the attacker is threatening the target board index.
+
+		Parameters
+		----------
+		target_idx : int
+			Board index to check
+		attacker : PieceColour
+			Attacking player
+
+		Returns
+		-------
+		bool
+			If the board index is being threatened
+
+		Raises
+		------
+		ValueError
+			Invalid board index provided
+		"""
+
+		# Verify that the target index is on the board
+		if not Board.idx_on_board(target_idx):
+			raise ValueError(f"Provided index {target_idx} is not a valid board index.")
+
+		# We can search backwards from the target index to check if any enemy piece can threaten it
+		# Start by checking for pawns since it's a easy check to do separately
+		# We will need to check the opposite direction to normal pawn movement for this.
+		pawn_direction = -1 if (attacker == PieceColour.WHITE) == (not self.__reversed) else 1
+		for d in (15, 17):
+			a_idx = target_idx + (d * pawn_direction)
+			if Board.idx_on_board(a_idx):
+				a_num = self.__board[a_idx]
+				if ChessPiece.is_piece(a_num):
+					a_colour, a_type = ChessPiece.decode_piece(a_num)
+					if a_colour == attacker and a_type == PieceType.PAWN:
+						# Pawn is threatening the square
+						return True
+
+		# Search four cardinal directions
+		# Stop if we reach a piece of any type
+		for d in (16, 1, -16, -1):
+			i = 1
+			a_idx = target_idx + (d * i)
+			while Board.idx_on_board(a_idx):
+				a_num = self.__board[a_idx]
+				if ChessPiece.is_piece(a_num):
+					# If we ran into a piece, we are going to end the while loop no matter what
+					a_colour, a_type = ChessPiece.decode_piece(a_num)
+					if a_colour == attacker and (
+						(a_type == PieceType.KING and i == 1) or (a_type in (PieceType.ROOK, PieceType.QUEEN))
+					):
+						# If the piece can attack the target, return true
+						return True
+					else:
+						# Otherwise, stop the while loop and continue to the next direction
+						break
+
+				i += 1
+				a_idx = target_idx + (d * i)
+
+		# Search the four diagonals
+		for d in (15, 17, -15, -17):
+			i = 1
+			a_idx = target_idx + (d * i)
+			while Board.idx_on_board(a_idx):
+				a_num = self.__board[a_idx]
+				if ChessPiece.is_piece(a_num):
+					# If we ran into a piece, we are going to end the while loop no matter what
+					a_colour, a_type = ChessPiece.decode_piece(a_num)
+					if a_colour == attacker and (
+						(a_type == PieceType.KING and i == 1) or (a_type in (PieceType.BISHOP, PieceType.QUEEN))
+					):
+						# If the piece can attack the target, return true
+						return True
+					else:
+						# Otherwise, stop the while loop and continue to the next direction
+						break
+
+				i += 1
+				a_idx = target_idx + (d * i)
+
+		# Search directly for knights
+		for d in (33, 18, -14, -31, -33, -18, 14, 31):
+			a_idx = target_idx + d
+			if Board.idx_on_board(a_idx):
+				a_num = self.__board[a_idx]
+				if ChessPiece.is_piece(a_num):
+					a_colour, a_type = ChessPiece.decode_piece(a_num)
+					if a_colour == attacker and a_type == PieceType.KNIGHT:
+						# Knight is threatening the square
+						return True
+
+		# If we reached the end, that means no piece is threatening the square
+		return False
+
 	def is_in_check(self) -> bool:
 		"""Check if the current player is in check."""
 		# Find king position
