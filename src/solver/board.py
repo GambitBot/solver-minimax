@@ -29,6 +29,7 @@ class ChessMove:
 	promotion: PieceType | None
 	capture: int | None
 	enpassant: bool
+	castle: int | None
 	score: float
 
 	def __init__(
@@ -40,6 +41,7 @@ class ChessMove:
 		promotion: PieceType | None = None,
 		capture: int | None = None,
 		enpassant: bool = False,
+		castle: int | None = None,
 		score: float = -float("inf"),
 	):
 		"""Initializes a move"""
@@ -49,6 +51,7 @@ class ChessMove:
 		self.promotion = promotion
 		self.capture = capture
 		self.enpassant = enpassant
+		self.castle = castle
 		self.score = score
 
 	def __str__(self) -> str:
@@ -58,6 +61,8 @@ class ChessMove:
 			s += " Capture"
 		if self.enpassant:
 			s += " en-passant"
+		if self.castle is not None:
+			s += f" Castle with {Board.idx_to_square(self.castle)}"
 		if self.promotion is not None:
 			s += f" | Promotion: {ChessPiece.to_string(np.uint8(self.promotion))}"
 		return s
@@ -542,7 +547,60 @@ class Board:
 							elif not ChessPiece.is_piece(self.__board[new_idx]):
 								moves.append(ChessMove(piece_num, i, new_idx))
 
-					# TODO: Allow castling
+					# Check for castling validity
+					# Castling is only valid if the king is not in check (i.e. being threatened)
+					attacker = PieceColour.BLACK if self.__active_move == PieceColour.WHITE else PieceColour.WHITE
+					if not self.is_threatened(i, attacker):
+						castle_indices = self.get_valid_castling_idx(self.__active_move)
+
+						for c in castle_indices:
+							# Initialize the target index at 1
+							king_target_idx = 1
+							if self.__reversed:
+								# If White is the active player, add 70
+								if self.__active_move == PieceColour.WHITE:
+									king_target_idx += 70
+							else:
+								# If the board is not reversed, add 1
+								king_target_idx += 1
+								# If Black is the active player, add 70
+								if self.__active_move == PieceColour.BLACK:
+									king_target_idx += 71
+							# If the target is a higher index than the King, add 4
+							if c > i:
+								king_target_idx += 4
+
+							# Check that all squares between the king and rook are empty
+							valid = True
+							castle_check_indices = sorted((i, c))
+							castle_check_range = tuple(range(castle_check_indices[0] + 1, castle_check_indices[1]))
+							for j in castle_check_range:
+								if ChessPiece.is_piece(self.__board[j]):
+									valid = False
+									break
+
+							# If we found a piece between the king and rook, stop further checks
+							if not valid:
+								continue
+
+							# Check that all squares that the king will past through are not threatened
+							castle_check_indices = sorted((i, king_target_idx))
+							castle_check_range = tuple(range(castle_check_indices[0], castle_check_indices[1] + 1))
+							for j in castle_check_range:
+								if j == i:
+									# Don't check the King's current square a second time
+									continue
+
+								if self.is_threatened(j, attacker):
+									valid = False
+									break
+
+							# If the king would be threatened, stop further checks
+							if not valid:
+								continue
+
+							# If we reach this point, that means that castling is a valid move
+							moves.append(ChessMove(piece_num, i, king_target_idx, castle=c))
 
 		return moves
 
@@ -576,7 +634,7 @@ class Board:
 		if ChessPiece.decode_piece(move.piece)[1] == PieceType.PAWN or move.capture is not None:
 			new_board.__halfmove_clock = 0
 		else:
-			# Otherwise, incremenet the clock by one.
+			# Otherwise, increment the clock by one.
 			new_board.__halfmove_clock = self.__halfmove_clock + 1
 
 		# Copy the reversed and initialized states of the board
@@ -591,6 +649,15 @@ class Board:
 		# Move the piece to its new location
 		new_board.__board[move.idx_to] = move.piece
 		new_board.__board[move.idx_from] = 0
+
+		# If the move was a castling move, move the rook as well
+		if move.castle is not None:
+			if move.castle < move.idx_from:
+				new_board.__board[move.idx_to + 1] = self.__board[move.castle]
+				new_board.__board[move.castle] = 0
+			else:
+				new_board.__board[move.idx_to - 1] = self.__board[move.castle]
+				new_board.__board[move.castle] = 0
 
 		# If the piece was a pawn that moved two squares, set the new enpassant index
 		if ChessPiece.decode_piece(move.piece)[1] == PieceType.PAWN and abs(move.idx_to - move.idx_from) > 20:
