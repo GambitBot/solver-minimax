@@ -173,7 +173,38 @@ class Board:
 		# Determine the active move
 		self.__active_move = PieceColour.WHITE if fen_segments[1].casefold() == "w" else PieceColour.BLACK
 
-		# TODO: Implement castling checks
+		# Check for castling status
+		self.__castle_white.clear()
+		self.__castle_black.clear()
+		if fen_segments[2] != "-":
+			# Check the first letter to see which if standard FEN or Shredder-FEN is in use.
+			if fen_segments[2][0] >= "K":
+				# Standard FEN is in use
+				for i in fen_segments[2]:
+					# Uppercase letters represent white pieces
+					if i == "K":
+						# King-side castling for white is on the right
+						self.__castle_white.append(0x07 if not self.__reversed else 0x70)
+					elif i == "Q":
+						# Queen-side castling for white is on the left
+						self.__castle_white.append(0x00 if not self.__reversed else 0x77)
+					if i == "k":
+						# King-side castling for black is on the left
+						self.__castle_black.append(0x77 if not self.__reversed else 0x00)
+					elif i == "q":
+						# Queen-side castling for black is on the right
+						self.__castle_black.append(0x70 if not self.__reversed else 0x07)
+			else:
+				# Shredder-FEN is in use
+				# Castling is represented as alphabetical columns for each player
+				for i in fen_segments[2]:
+					if i.isupper():
+						# Uppercase letters represent white pieces
+						idx_base = -65 if not self.__reversed else 47
+						self.__castle_white.append(ord(i) + idx_base)
+					else:
+						idx_base = 15 if not self.__reversed else -97
+						self.__castle_black.append(ord(i) + idx_base)
 
 		# Pending en-passant status
 		if fen_segments[3] != "-":
@@ -853,6 +884,26 @@ class Board:
 			return PieceColour.WHITE
 		else:
 			return PieceColour.BLACK
+
+	def get_valid_castling_idx(self, player: PieceColour) -> tuple[int, ...]:
+		"""Gets indices of rooks for valid castling moves.
+
+		Parameters
+		----------
+		player : PieceColour
+			Player colour to retrieve castling indices for.
+
+		Returns
+		-------
+		tuple[int, ...]
+			Valid castling indices
+		"""
+		if player == PieceColour.WHITE:
+			return tuple(self.__castle_white)
+		elif player == PieceColour.BLACK:
+			return tuple(self.__castle_black)
+		else:
+			return tuple()
 
 	@staticmethod
 	def idx_from_rank_and_file(rank: int, file: int) -> int:

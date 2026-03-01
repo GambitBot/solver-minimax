@@ -3,6 +3,7 @@
 import time
 
 from .board import Board
+from .piece import PieceColour
 
 
 def benchmark() -> None:
@@ -18,6 +19,8 @@ def benchmark() -> None:
 	b.load_fen_string(FEN_STRING_PAWN_CAPTURE)
 	print("Resulting board")
 	print(b)
+	print(f"White castling on: {tuple(map(lambda x: Board.idx_to_square(x), b.get_valid_castling_idx(PieceColour.WHITE)))}")
+	print(f"Black castling on: {tuple(map(lambda x: Board.idx_to_square(x), b.get_valid_castling_idx(PieceColour.BLACK)))}")
 	print(f"Board state weight: {b.get_state_value()}")
 
 	print("Determining possible moves")
