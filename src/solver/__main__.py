@@ -10,6 +10,13 @@ from .server import run_server
 _log = logging.getLogger("gambit-solver")
 
 
+class ArgNamespace(argparse.Namespace):
+	"""Argument parser namespace for type hinting"""
+
+	server: bool
+	configfile: str | None
+
+
 def main() -> None:
 	"""Gambit Solver main function"""
 	# Configure logging before anything else
@@ -17,11 +24,15 @@ def main() -> None:
 	# Argument setup
 	parser = argparse.ArgumentParser()
 	parser.add_argument("-s", "--server", action="store_true", dest="server", help="Run as server")
-	args = parser.parse_args()
+	parser.add_argument("-c", "--config", action="store", dest="configfile", help="Configuration file path")
+	args = parser.parse_args(namespace=ArgNamespace())
 
 	if args.server:
 		# If started as a server
-		run_server()
+		if args.configfile is not None:
+			run_server(args.configfile)
+		else:
+			_log.error("Server requires a configuration file to run!")
 	else:
 		# Otherwise, run the benchmark
 		benchmark()

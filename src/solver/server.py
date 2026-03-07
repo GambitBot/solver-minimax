@@ -7,6 +7,7 @@ from typing import Callable
 
 from .board import Board
 from .client import GambitClient
+from .config import GambitConfig
 
 _log = logging.getLogger(__name__)
 
@@ -16,12 +17,14 @@ class GambitServer:
 
 	board: Board
 
-	def __init__(self) -> None:
+	def __init__(self, config: GambitConfig) -> None:
 		"""Initializes a Gambit Solver IPC server"""
 		self.board = Board()
+		# Configuration object
+		self.config = config
 		# Temporarily hard-code these values for now
 		self.socket_address = "localhost"
-		self.socket_port = 8081
+		self.socket_port = config.server_port
 		# Socket-related values
 		self.__socket: socket.socket | None = None
 		self.__connections: set[socket.socket] = set()
@@ -29,7 +32,7 @@ class GambitServer:
 		self.__buffers: dict[socket.socket, bytearray] = {}
 		# Client setup
 		# TODO: Make this not hardcoded
-		self.client = GambitClient(8082)
+		self.client = GambitClient(config.client_port)
 
 	def __socket_accept(self, sock: socket.socket) -> None:
 		assert self.__selector is not None  # This makes the type-checker happy
@@ -99,21 +102,21 @@ class GambitServer:
 	def __command_solve(self, data: str) -> None:
 		self.__command_update(data)
 		_log.info("Solving board state")
-		move, _ = self.board.solve(4)  # TODO: Make this not hardcoded
+		if self.config.search_target_time is not None:
+			move, _ = self.board.solve(self.config.search_depth, self.config.search_target_time, self.config.search_max_time)
+		else:
+			move, _ = self.board.solve(self.config.search_depth)
+
 		# Apply the move to the board
 		self.board.apply_move(move)
 		_log.info(f"Selected move: {move}")
 		self.client.send(str(move))
 
 	def __command_debug_solve(self, data: str) -> None:
-		# TODO: Calculate proper turn, castle, and other values for the FEN string
-		# data += " w KQkq - 0 1"
 		_log.info(f"Solving for board state: {data}")
 		self.board.load_fen_string(data)
-		# TODO: Don't use a hardcoded search depth
-		move, _ = self.board.solve(4)
+		move, _ = self.board.solve(self.config.search_depth)
 		# Print results of the solve
-		# TODO: Remove this part and add code to send to the movement module
 		print(f"Optimal move: {move}")
 
 	def __command_update(self, data: str) -> None:
@@ -163,8 +166,9 @@ class GambitServer:
 			self.__selector.close()
 
 
-def run_server() -> None:
+def run_server(configfile: str) -> None:
 	"""Runs the Gambit solver IPC server"""
 	_log.info("Running Gambit Solver server")
-	server = GambitServer()
+	config = GambitConfig(configfile)
+	server = GambitServer(config)
 	server.run()

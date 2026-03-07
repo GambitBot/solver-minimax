@@ -1,0 +1,11 @@
+[sensing]
+
+
+[solution]
+port = 8081
+depth = 4
+target_time = 3.0
+max_time = 5.0
+
+[movement]
+port = 8082
