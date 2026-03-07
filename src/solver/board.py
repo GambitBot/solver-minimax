@@ -635,6 +635,71 @@ class Board:
 
 		return moves
 
+	def apply_move(self, move: ChessMove) -> None:
+		"""Applies a move to the board.
+
+		Parameters
+		----------
+		move : ChessMove
+			Chess move to apply
+		"""
+		pieceColour, pieceType = ChessPiece.decode_piece(move.piece)
+		# Increment the move count if black moved
+		if pieceColour == PieceColour.BLACK:
+			self.__move_count += 1
+
+		# Swap the active move
+		if self.__active_move == PieceColour.WHITE:
+			self.__active_move = PieceColour.BLACK
+		else:
+			self.__active_move = PieceColour.WHITE
+
+		# If a pawn was moved, or a piece was captured, reset the halfmove clock.
+		if ChessPiece.decode_piece(move.piece)[1] == PieceType.PAWN or move.capture is not None:
+			self.__halfmove_clock = 0
+		else:
+			# Otherwise, increment the clock by one.
+			self.__halfmove_clock = self.__halfmove_clock + 1
+		if move.capture is not None:
+			# If the move is capturing a piece, set the capture index to 0
+			self.__board[move.capture] = 0
+
+		# If the moved piece was a king or rook, update castling flags
+		if pieceType == PieceType.ROOK:
+			if pieceColour == PieceColour.WHITE:
+				if move.idx_from in self.__castle_white:
+					self.__castle_white.remove(move.idx_from)
+			else:
+				if move.idx_from in self.__castle_black:
+					self.__castle_black.remove(move.idx_from)
+
+		elif pieceType == PieceType.KING:
+			if pieceColour == PieceColour.WHITE:
+				self.__castle_white.clear()
+			else:
+				self.__castle_black.clear()
+
+		# Move the piece to its new location
+		self.__board[move.idx_to] = move.piece
+		self.__board[move.idx_from] = 0
+
+		# If the move was a castling move, move the rook as well
+		if move.castle is not None:
+			if move.castle < move.idx_from:
+				self.__board[move.idx_to + 1] = self.__board[move.castle]
+				self.__board[move.castle] = 0
+			else:
+				self.__board[move.idx_to - 1] = self.__board[move.castle]
+				self.__board[move.castle] = 0
+
+		# If the piece was a pawn that moved two squares, set the new enpassant index
+		if ChessPiece.decode_piece(move.piece)[1] == PieceType.PAWN and abs(move.idx_to - move.idx_from) > 20:
+			# This will set the enpassant index to the halfway point between the two squares, which
+			# will correspond to the square that the pawn jumped over.
+			self.__enpassant = move.idx_from + ((move.idx_to - move.idx_from) // 2)
+		else:
+			self.__enpassant = None
+
 	def with_move(self, move: ChessMove) -> "Board":
 		"""Returns a new instance of the board with a given chess move applied.
 
@@ -650,53 +715,21 @@ class Board:
 		"""
 		# Initialize a new board
 		new_board = Board()
-		# Copy the existing board state to start
+		# Copy the existing board state
+		new_board.__active_move = self.__active_move
+		new_board.__move_count = self.__move_count
+		new_board.__halfmove_clock = self.__halfmove_clock
+		new_board.__enpassant = self.__enpassant
 		new_board.__board = self.__board.copy()
-		# Swap the active move
-		if self.__active_move == PieceColour.WHITE:
-			new_board.__active_move = PieceColour.BLACK
-		else:
-			new_board.__active_move = PieceColour.WHITE
-
-		# Increment the move count
-		new_board.__move_count = self.__move_count + 1
-
-		# If a pawn was moved, or a piece was captured, reset the halfmove clock.
-		if ChessPiece.decode_piece(move.piece)[1] == PieceType.PAWN or move.capture is not None:
-			new_board.__halfmove_clock = 0
-		else:
-			# Otherwise, increment the clock by one.
-			new_board.__halfmove_clock = self.__halfmove_clock + 1
-
-		# Copy the reversed and initialized states of the board
+		new_board.__piecetype_weights = self.__piecetype_weights.copy()
 		new_board.__reversed = self.__reversed
+		new_board.__difficulty = self.__difficulty
 		new_board.__initialized = self.__initialized
+		new_board.__castle_white = self.__castle_white
+		new_board.__castle_black = self.__castle_black
 
 		# Apply the move
-		if move.capture is not None:
-			# If the move is capturing a piece, set the capture index to 0
-			new_board.__board[move.capture] = 0
-
-		# Move the piece to its new location
-		new_board.__board[move.idx_to] = move.piece
-		new_board.__board[move.idx_from] = 0
-
-		# If the move was a castling move, move the rook as well
-		if move.castle is not None:
-			if move.castle < move.idx_from:
-				new_board.__board[move.idx_to + 1] = self.__board[move.castle]
-				new_board.__board[move.castle] = 0
-			else:
-				new_board.__board[move.idx_to - 1] = self.__board[move.castle]
-				new_board.__board[move.castle] = 0
-
-		# If the piece was a pawn that moved two squares, set the new enpassant index
-		if ChessPiece.decode_piece(move.piece)[1] == PieceType.PAWN and abs(move.idx_to - move.idx_from) > 20:
-			# This will set the enpassant index to the halfway point between the two squares, which
-			# will correspond to the square that the pawn jumped over.
-			new_board.__enpassant = move.idx_from + ((move.idx_to - move.idx_from) // 2)
-		else:
-			new_board.__enpassant = None
+		new_board.apply_move(move)
 
 		return new_board
 
