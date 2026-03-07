@@ -3,6 +3,7 @@
 import time
 
 from .board import Board
+from .piece import PieceColour
 
 
 def benchmark() -> None:
@@ -18,6 +19,8 @@ def benchmark() -> None:
 	b.load_fen_string(FEN_STRING_PAWN_CAPTURE)
 	print("Resulting board")
 	print(b)
+	print(f"White castling on: {tuple(map(lambda x: Board.idx_to_square(x), b.get_valid_castling_idx(PieceColour.WHITE)))}")
+	print(f"Black castling on: {tuple(map(lambda x: Board.idx_to_square(x), b.get_valid_castling_idx(PieceColour.BLACK)))}")
 	print(f"Board state weight: {b.get_state_value()}")
 
 	print("Determining possible moves")
@@ -26,9 +29,11 @@ def benchmark() -> None:
 	for m in moves:
 		print(f"    {m}")
 
+	search_depth = 4
 	start_time = time.time()
-	print("Selecting an optimal move with depth 4")
-	move = b.solve(4)
+	print(f"Selecting an optimal move with depth {search_depth}")
+	move, depth = b.solve(search_depth, 5.0, 10.0)
+	print(f"Search completed to depth: {depth}")
 	print("Optimal move:")
 	print(f"    {move}")
 	end_time = time.time()
