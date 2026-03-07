@@ -39,4 +39,11 @@ def benchmark() -> None:
 	end_time = time.time()
 	print(f"Duration: {end_time - start_time:.3f}s")
 
+	print("Applying selected move")
+	print("Board state before:")
+	print(b)
+	b.apply_move(move)
+	print("Board state after:")
+	print(b)
+
 	pass
