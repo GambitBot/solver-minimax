@@ -3,6 +3,7 @@
 import logging
 import time
 from collections.abc import Iterable
+from enum import IntEnum
 
 import numpy as np
 
@@ -69,6 +70,14 @@ class ChessMove:
 		return s
 
 
+class Difficulty(IntEnum):
+	"""Solver difficulty settings"""
+
+	EASY = 1
+	MEDIUM = 2
+	HARD = 3
+
+
 class Board:
 	"""Representation of a chess board."""
 
@@ -87,6 +96,8 @@ class Board:
 	# Board direction.
 	# False if viewed from white, true if viewed from black.
 	__reversed: bool
+	# Difficulty setting.
+	__difficulty: Difficulty
 	# If the board is currently "initialized", or if it is reset
 	__initialized: bool
 	# Valid castling indices
@@ -110,6 +121,8 @@ class Board:
 		# Set up the castling lists
 		self.__castle_white = []
 		self.__castle_black = []
+		# Set the difficulty to hard
+		self.__difficulty = Difficulty.HARD
 		# Default the board into the reset state
 		self.__initialized = False
 
@@ -144,6 +157,15 @@ class Board:
 		self.__castle_white = []
 		self.__castle_black = []
 		self.__initialized = False
+
+	def set_difficulty(self, difficulty: Difficulty | int) -> None:
+		if isinstance(difficulty, int):
+			try:
+				difficulty = Difficulty(difficulty)
+			except:
+				difficulty = Difficulty.HARD
+
+		self.__difficulty = difficulty
 
 	def load_fen_string(self, fen: str) -> None:
 		"""Loads an FEN string onto the board.
