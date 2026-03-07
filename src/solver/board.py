@@ -159,10 +159,17 @@ class Board:
 		self.__initialized = False
 
 	def set_difficulty(self, difficulty: Difficulty | int) -> None:
+		"""Sets the difficulty of the solver.
+
+		Parameters
+		----------
+		difficulty : Difficulty | int
+			Difficulty to set
+		"""
 		if isinstance(difficulty, int):
 			try:
 				difficulty = Difficulty(difficulty)
-			except:
+			except ValueError:
 				difficulty = Difficulty.HARD
 
 		self.__difficulty = difficulty
