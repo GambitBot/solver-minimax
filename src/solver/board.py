@@ -20,6 +20,7 @@ DEFAULT_PIECETYPE_WEIGHTS = {
 }
 
 _log = logging.getLogger(__name__)
+_rng = np.random.default_rng()
 
 
 class ChessMove:
@@ -768,7 +769,25 @@ class Board:
 		if cut_time is not None and time.time() > cut_time:
 			depth -= 1
 
-		return move_list[move_order[0]], depth
+		selected_idx: int
+
+		match self.__difficulty:
+			case Difficulty.HARD:
+				# Hard will always select the best move
+				selected_idx = move_order[0]
+			case Difficulty.MEDIUM:
+				# Medium will select from the five best moves with decreasing
+				# probability, following the equation 1 / i^2
+				move_count = min(len(move_list), 5)
+				move_p = np.array(tuple(range(1, move_count + 1)))
+				move_p = 1 / (move_p**2)
+				selected_idx = _rng.choice(move_order[0:move_count], p=move_p)
+			case Difficulty.EASY:
+				# Easy selects equally from the five best moves available
+				move_count = min(len(move_list), 5)
+				selected_idx = _rng.choice(move_order[0:move_count])
+
+		return move_list[selected_idx], depth
 
 	def __solve_recurse(
 		self,
