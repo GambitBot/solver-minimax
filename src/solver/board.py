@@ -748,7 +748,9 @@ class Board:
 
 			# Sort the move order list only if we have not exceeded the cut time
 			if cut_time is None or time.time() < cut_time:
-				move_order = move_scores.argsort()
+				# The result of the argsort needs to be reversed to provide
+				# descending ordering for the sort.
+				move_order = move_scores.argsort()[::-1]
 
 			# If we have exceeded the alotted time, break out of the loop
 			if end_time is not None and time.time() > end_time:
