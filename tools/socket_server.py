@@ -117,7 +117,7 @@ def main() -> None:
 	"""Main function"""
 	setup_logging()
 	parser = argparse.ArgumentParser()
-	parser.add_argument("-p", "--port", action="store", dest="port", help="Destination port")
+	parser.add_argument("-p", "--port", action="store", dest="port", help="Destination port", default="8082")
 	args = parser.parse_args(namespace=ArgNamespace())
 
 	server = GambitServer(int(args.port))

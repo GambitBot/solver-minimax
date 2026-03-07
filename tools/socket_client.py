@@ -13,7 +13,7 @@ class ArgNamespace(argparse.Namespace):
 def main() -> None:
 	"""Main function"""
 	parser = argparse.ArgumentParser()
-	parser.add_argument("-p", "--port", action="store", dest="port", help="Destination port")
+	parser.add_argument("-p", "--port", action="store", dest="port", help="Destination port", default="8081")
 	args = parser.parse_args(namespace=ArgNamespace())
 
 	dest_ip = "localhost"

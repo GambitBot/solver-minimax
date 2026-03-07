@@ -6,6 +6,7 @@ import socket
 from typing import Callable
 
 from .board import Board
+from .client import GambitClient
 
 _log = logging.getLogger(__name__)
 
@@ -26,6 +27,9 @@ class GambitServer:
 		self.__connections: set[socket.socket] = set()
 		self.__selector: selectors.BaseSelector | None = None
 		self.__buffers: dict[socket.socket, bytearray] = {}
+		# Client setup
+		# TODO: Make this not hardcoded
+		self.client = GambitClient(8082)
 
 	def __socket_accept(self, sock: socket.socket) -> None:
 		assert self.__selector is not None  # This makes the type-checker happy
@@ -55,11 +59,13 @@ class GambitServer:
 			# Shut down the socket while we close it down
 			conn.shutdown(socket.SHUT_RDWR)
 			# Handle the command
-			self.__handle_command(self.__buffers[conn].decode())
-			self.__selector.unregister(conn)
-			self.__connections.remove(conn)
-			del self.__buffers[conn]
-			conn.close()
+			try:
+				self.__handle_command(self.__buffers[conn].decode())
+			finally:
+				self.__selector.unregister(conn)
+				self.__connections.remove(conn)
+				del self.__buffers[conn]
+				conn.close()
 
 	def __handle_command(self, commandstr: str) -> None:
 		_log.info(f"Executing command: {commandstr}")
@@ -76,7 +82,7 @@ class GambitServer:
 			case "reset":
 				self.__command_reset()
 			case "solve":
-				self.__command_solve()
+				self.__command_solve(data)
 			case "update":
 				self.__command_update(data)
 			case "debug_solve":
@@ -90,11 +96,14 @@ class GambitServer:
 		_log.info("Resetting board state")
 		self.board.reset()
 
-	def __command_solve(self) -> None:
+	def __command_solve(self, data: str) -> None:
+		self.__command_update(data)
 		_log.info("Solving board state")
 		move, _ = self.board.solve(4)  # TODO: Make this not hardcoded
+		# Apply the move to the board
+		self.board.apply_move(move)
 		_log.info(f"Selected move: {move}")
-		# TODO: Have this send the result to the movement module
+		self.client.send(str(move))
 
 	def __command_debug_solve(self, data: str) -> None:
 		# TODO: Calculate proper turn, castle, and other values for the FEN string
