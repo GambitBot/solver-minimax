@@ -1,5 +1,7 @@
 """Benchmark solution module solution times"""
 
+# Run benchmark with "python -u" flag for unbuffered STDOUT
+
 import time
 
 import solver
