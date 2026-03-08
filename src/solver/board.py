@@ -175,13 +175,15 @@ class Board:
 
 		self.__difficulty = difficulty
 
-	def load_fen_string(self, fen: str) -> None:
+	def load_fen_string(self, fen: str, set_player: bool = False) -> None:
 		"""Loads an FEN string onto the board.
 
 		Parameters
 		----------
 		fen : str
 			Input FEN string to load.
+		set_player: bool (optional)
+			Sets gambit as the active player
 
 		Raises
 		------
@@ -208,6 +210,10 @@ class Board:
 
 		# Determine the active move
 		self.__active_move = PieceColour.WHITE if fen_segments[1].casefold() == "w" else PieceColour.BLACK
+
+		# Set board direction (if specified)
+		if set_player:
+			self.__reversed = True if self.__active_move == PieceColour.BLACK else False
 
 		# Check for castling status
 		self.__castle_white.clear()
@@ -249,6 +255,9 @@ class Board:
 		# Halfmove clock and total moves
 		self.__halfmove_clock = int(fen_segments[4])
 		self.__move_count = int(fen_segments[5])
+
+		# Set the board as initialized
+		self.__initialized = True
 
 	def update_board(self, boardstate: str) -> None:
 		"""Parses the piece location part of the FEN string.
