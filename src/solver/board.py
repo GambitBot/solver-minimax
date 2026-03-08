@@ -875,6 +875,11 @@ class Board:
 			if alpha >= beta:
 				break  # beta cutoff
 
+			# Cutoff if the game has ended.
+			# Only a missing king could result in a score differential this high.
+			if abs(score) > 50000:
+				break
+
 		return best
 
 	def is_threatened(self, target_idx: int, attacker: PieceColour) -> bool:
