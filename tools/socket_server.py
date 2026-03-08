@@ -67,10 +67,11 @@ class GambitServer:
 			_log.debug(f"Closing socket: {conn}")
 			# Send a zero response to indicate OK
 			conn.send("0".encode())
+			# Get the peer information before shutting down the socket
+			peer_host, peer_port = conn.getpeername()
 			# Shut down the socket while we close it down
 			conn.shutdown(socket.SHUT_RDWR)
 			# Handle the command
-			peer_host, peer_port = conn.getpeername()
 			_log.info(f"Processing command from {peer_host}:{peer_port} : {self.__buffers[conn].decode('utf-8')}")
 			self.__selector.unregister(conn)
 			self.__connections.remove(conn)
