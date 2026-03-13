@@ -28,7 +28,7 @@ jobs:
           python -m venv .venv
           source .venv/bin/activate
           python -m pip install --upgrade pip
-          if [ -f requirements-tests.txt ]; then pip install -r requirements-tests.txt; fi
+          if [ -f requirements-imagegen.txt ]; then pip install -r requirements-imagegen.txt; fi
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
       - name: Add venv to path
