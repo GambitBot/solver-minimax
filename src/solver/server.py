@@ -107,10 +107,13 @@ class GambitServer:
 		else:
 			move, _ = self.board.solve(self.config.search_depth)
 
+		# Get the move command to send to the movement bridge
+		moveCommand = self.board.get_move_command(move)
 		# Apply the move to the board
 		self.board.apply_move(move)
 		_log.info(f"Selected move: {move}")
-		self.client.send(str(move))
+		_log.debug(f"Sending move command: {moveCommand}")
+		self.client.send(moveCommand)
 
 	def __command_debug_solve(self, data: str) -> None:
 		_log.info(f"Solving for board state: {data}")

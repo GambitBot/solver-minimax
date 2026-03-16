@@ -742,6 +742,48 @@ class Board:
 
 		return new_board
 
+	def get_move_command(self, move: ChessMove) -> str:
+		"""Generates the IPC command associated with a move from a given board state.
+
+		Parameters
+		----------
+		move : ChessMove
+			Chess move to use
+
+		Returns
+		-------
+		str
+			IPC command(s) for the associated chess move
+		"""
+		# Initialize the command
+		command = "move "
+		if move.capture is not None:
+			# If the move is a capture, we need to first move the captured piece
+			# out of the way.
+			# Get the type of the piece being captured
+			captureType = ChessPiece.to_FEN(self.__board[move.capture]).casefold()
+			captureSource = Board.idx_to_square(move.capture)
+			command += f"{captureType}{captureSource}xx,"
+		elif move.castle is not None:
+			# If the move is a castling move, we need to move the rook as well
+			# as the king.
+			# TODO: Check for move conflicts for Chess960
+			castleTargetIdx = move.idx_to + 1 if move.castle < move.idx_from else move.idx_to - 1
+			# This shouldn't be needed, but it's a useful check anyways
+			castleType = ChessPiece.to_FEN(self.__board[move.castle]).casefold()
+			castleFrom = Board.idx_to_square(move.castle)
+			castleTo = Board.idx_to_square(castleTargetIdx)
+			command += f"{castleType}{castleFrom}{castleTo},"
+
+		# Get the piece type being moved
+		pieceType = ChessPiece.to_FEN(move.piece).casefold()
+		# Get the squares for the move
+		squareFrom = Board.idx_to_square(move.idx_from)
+		squareTo = Board.idx_to_square(move.idx_to)
+		command += f"{pieceType}{squareFrom}{squareTo}"
+
+		return command
+
 	def solve(
 		self, target_depth: int, target_time: float | None = None, max_time: float | None = None
 	) -> tuple[ChessMove, int]:

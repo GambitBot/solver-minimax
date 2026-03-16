@@ -36,6 +36,8 @@ def benchmark() -> None:
 	print(f"Search completed to depth: {depth}")
 	print("Optimal move:")
 	print(f"    {move}")
+	print("Move command:")
+	print(b.get_move_command(move))
 	end_time = time.time()
 	print(f"Duration: {end_time - start_time:.3f}s")
 
