@@ -1,6 +1,7 @@
 """Tool to test sending data to a Gambit IPC server"""
 
 import argparse
+import errno
 import importlib.util
 import socket
 
@@ -34,7 +35,13 @@ def main() -> None:
 				sock.send(data.encode("utf-8"))
 				sock.shutdown(socket.SHUT_WR)
 				response = sock.recv(1000)
-				sock.shutdown(socket.SHUT_RDWR)
+				try:
+					sock.shutdown(socket.SHUT_RDWR)
+				except OSError as exc:
+					if exc.errno == errno.ENOTCONN:
+						pass  # Socket is not connected, so can't send FIN packet.
+					else:
+						raise
 				sock.close()
 				print(f"Response: {response.decode('utf-8')}")
 			except (ConnectionRefusedError, TimeoutError):
