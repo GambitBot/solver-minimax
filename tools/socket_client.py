@@ -1,7 +1,11 @@
 """Tool to test sending data to a Gambit IPC server"""
 
 import argparse
+import importlib.util
 import socket
+
+if importlib.util.find_spec("readline") is not None:
+	import readline  # type: ignore # noqa: F401
 
 
 class ArgNamespace(argparse.Namespace):
