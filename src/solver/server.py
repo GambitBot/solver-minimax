@@ -158,6 +158,10 @@ class GambitServer:
 	def __command_move(self, data: str) -> None:
 		_log.info(f"Applying manual move(s): {data}")
 		self.board.apply_manual_moves(data)
+		# Send the updated board state to the viewer if we're using the viewer
+		if self.viewer:
+			fen = self.board.to_partial_fen()
+			self.client.send(fen)
 		# Set Gambit as the active player before solving
 		self.board.set_gambit_as_player()
 		if self.config.search_target_time is not None:
