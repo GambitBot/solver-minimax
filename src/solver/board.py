@@ -280,6 +280,9 @@ class Board:
 					empty_count += 1
 					continue
 				# We have a valid piece by this point
+				if empty_count > 0:
+					board_str += str(empty_count)
+					empty_count = 0
 				board_str += ChessPiece.to_FEN(self.__board[idx])
 
 			# We have reached the end of the rank
