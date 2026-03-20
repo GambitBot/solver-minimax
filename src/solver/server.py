@@ -176,6 +176,7 @@ class GambitServer:
 			self.board.apply_move(move)
 			# Then send the board state to the viewer
 			fen = self.board.to_partial_fen()
+			_log.info(f"Selected move: {move}")
 			_log.info(f"Sending board to viewer: {fen}")
 			self.client.send(fen)
 		else:
