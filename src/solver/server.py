@@ -85,21 +85,25 @@ class GambitServer:
 		command = command.casefold()
 		# Strip any newline characters from the end of the data
 		data = data.strip("\r\n")
-		match command:
-			case "reset":
-				self.__command_reset()
-			case "solve":
-				self.__command_solve(data)
-			case "update":
-				self.__command_update(data)
-			case "debug_solve":
-				self.__command_debug_solve(data)
-			case "debug_status":
-				self.__command_debug_status()
-			case "move":
-				self.__command_move(data)
-			case _:
-				_log.warning(f"Received invalid command: {command}")
+		try:
+			match command:
+				case "reset":
+					self.__command_reset()
+				case "solve":
+					self.__command_solve(data)
+				case "update":
+					self.__command_update(data)
+				case "debug_solve":
+					self.__command_debug_solve(data)
+				case "debug_status":
+					self.__command_debug_status()
+				case "move":
+					self.__command_move(data)
+				case _:
+					_log.warning(f"Received invalid command: {command}")
+		except Exception as e:
+			_log.error(f"Error executing command: {command}")
+			_log.exception(e)
 
 	def __command_reset(self) -> None:
 		_log.info("Resetting board state")

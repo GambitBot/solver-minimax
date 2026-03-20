@@ -790,6 +790,13 @@ class Board:
 					# Set enpassant if the piece moved two squares
 					if abs(end_idx - start_idx) > 20:
 						self.__enpassant = start_idx + ((end_idx - start_idx) // 2)
+					elif end_idx == self.__enpassant:
+						# En passant capture
+						if self.__active_move == PieceColour.WHITE:
+							self.__board[end_idx - 16] = 0
+						else:
+							self.__board[end_idx + 16] = 0
+
 			# Write the stored chess piece into the end index
 			self.__board[end_idx] = move_pieces[i]
 			# Clear the start index
