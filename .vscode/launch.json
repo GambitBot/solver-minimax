@@ -16,7 +16,9 @@
 			"request": "launch",
 			"module": "solver",
 			"args": [
-				"-s"
+				"-s",
+				"--config",
+				"config.toml"
 			]
 		}
 	]

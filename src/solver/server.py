@@ -17,7 +17,7 @@ class GambitServer:
 
 	board: Board
 
-	def __init__(self, config: GambitConfig) -> None:
+	def __init__(self, config: GambitConfig, viewer: int | None = None) -> None:
 		"""Initializes a Gambit Solver IPC server"""
 		self.board = Board()
 		# Configuration object
@@ -31,8 +31,12 @@ class GambitServer:
 		self.__selector: selectors.BaseSelector | None = None
 		self.__buffers: dict[socket.socket, bytearray] = {}
 		# Client setup
-		# TODO: Make this not hardcoded
-		self.client = GambitClient(config.client_port)
+		if viewer is None:
+			self.client = GambitClient(config.client_port)
+			self.viewer = False
+		else:
+			self.client = GambitClient(viewer)
+			self.viewer = True
 
 	def __socket_accept(self, sock: socket.socket) -> None:
 		assert self.__selector is not None  # This makes the type-checker happy
@@ -92,6 +96,8 @@ class GambitServer:
 				self.__command_debug_solve(data)
 			case "debug_status":
 				self.__command_debug_status()
+			case "move":
+				self.__command_move(data)
 			case _:
 				_log.warning(f"Received invalid command: {command}")
 
@@ -102,18 +108,30 @@ class GambitServer:
 	def __command_solve(self, data: str) -> None:
 		self.__command_update(data)
 		_log.info("Solving board state")
+		# Set Gambit as the active player before solving
+		self.board.set_gambit_as_player()
 		if self.config.search_target_time is not None:
 			move, _ = self.board.solve(self.config.search_depth, self.config.search_target_time, self.config.search_max_time)
 		else:
 			move, _ = self.board.solve(self.config.search_depth)
 
-		# Get the move command to send to the movement bridge
-		moveCommand = self.board.get_move_command(move)
-		# Apply the move to the board
-		self.board.apply_move(move)
-		_log.info(f"Selected move: {move}")
-		_log.debug(f"Sending move command: {moveCommand}")
-		self.client.send(moveCommand)
+		if self.viewer:
+			# If we are using the viewer, we don't need to send
+			# anything to the movement bridge.
+			# Start by applying the move
+			self.board.apply_move(move)
+			# Then send the board state to the viewer
+			fen = self.board.to_partial_fen()
+			_log.info(f"Sending board to viewer: {fen}")
+			self.client.send(fen)
+		else:
+			# Get the move command to send to the movement bridge
+			moveCommand = self.board.get_move_command(move)
+			# Apply the move to the board
+			self.board.apply_move(move)
+			_log.info(f"Selected move: {move}")
+			_log.debug(f"Sending move command: {moveCommand}")
+			self.client.send(moveCommand)
 
 	def __command_debug_solve(self, data: str) -> None:
 		_log.info(f"Solving for board state: {data}")
@@ -132,6 +150,34 @@ class GambitServer:
 		print(f"Board initialized: {self.board.is_initialized()}")
 		print(f"Active player: {repr(self.board.get_active_move())}")
 		print(f"Gambit playing as: {repr(self.board.get_gambit_colour())}")
+
+	def __command_move(self, data: str) -> None:
+		_log.info(f"Applying manual move(s): {data}")
+		self.board.apply_manual_moves(data)
+		# Set Gambit as the active player before solving
+		self.board.set_gambit_as_player()
+		if self.config.search_target_time is not None:
+			move, _ = self.board.solve(self.config.search_depth, self.config.search_target_time, self.config.search_max_time)
+		else:
+			move, _ = self.board.solve(self.config.search_depth)
+
+		if self.viewer:
+			# If we are using the viewer, we don't need to send
+			# anything to the movement bridge.
+			# Start by applying the move
+			self.board.apply_move(move)
+			# Then send the board state to the viewer
+			fen = self.board.to_partial_fen()
+			_log.info(f"Sending board to viewer: {fen}")
+			self.client.send(fen)
+		else:
+			# Get the move command to send to the movement bridge
+			moveCommand = self.board.get_move_command(move)
+			# Apply the move to the board
+			self.board.apply_move(move)
+			_log.info(f"Selected move: {move}")
+			_log.debug(f"Sending move command: {moveCommand}")
+			self.client.send(moveCommand)
 
 	def run(self) -> None:
 		"""Runs the Gambit Solver IPC server.

@@ -259,6 +259,41 @@ class Board:
 		# Set the board as initialized
 		self.__initialized = True
 
+	def to_partial_fen(self) -> str:
+		"""Returns the piece locations as a partial FEN string
+
+		Returns
+		-------
+		str
+			Partial FEN string representing the current piece locations
+		"""
+		# Get current piece locations
+		# Ranks count down from the top of the board
+		board_str = ""
+		empty_count = 0
+		for rank in reversed(range(0, 8)):
+			for file in range(0, 8):
+				idx = Board.idx_from_rank_and_file(rank, file)
+				# If the index is not a piece, ignore it
+				if not ChessPiece.is_piece(self.__board[idx]):
+					# Increment the empty count by 1
+					empty_count += 1
+					continue
+				# We have a valid piece by this point
+				board_str += ChessPiece.to_FEN(self.__board[idx])
+
+			# We have reached the end of the rank
+			# If the empty count is not zero, write it to the board string
+			if empty_count > 0:
+				board_str += str(empty_count)
+			# Reset the empty space count
+			empty_count = 0
+			# If it is not the last rank, add a forward slash as a separator
+			if rank != 0:
+				board_str += "/"
+
+		return board_str
+
 	def update_board(self, boardstate: str) -> None:
 		"""Parses the piece location part of the FEN string.
 		Applies updates to the board state accordingly.
@@ -709,6 +744,57 @@ class Board:
 		else:
 			self.__enpassant = None
 
+	def apply_manual_moves(self, movestr: str) -> None:
+		"""Applies manual chess moves to the board.
+
+		Parameters
+		----------
+		movestr : str
+			Comma-separated string of moves to execute.
+		"""
+		# Split up the move string
+		moves = movestr.split(",")
+		move_pieces = []
+
+		# Start by getting the piece types at each source location
+		# Handles edge cases for Chess960 (such as castling where
+		# the king and rook swap places)
+		for m in moves:
+			start_idx = Board.idx_from_square(m[0:2])
+			move_pieces.append(self.__board[start_idx])
+
+		# Apply all of the moves
+		for i, m in enumerate(moves):
+			start_idx = Board.idx_from_square(m[0:2])
+			end_idx = Board.idx_from_square(m[2:4])
+			# Get the piece information
+			piece_colour, piece_type = ChessPiece.decode_piece(move_pieces[i])
+			# Handle piece-specific flags
+			match piece_type:
+				case PieceType.KING:
+					# Clear castling options if kings move
+					if piece_colour == PieceColour.WHITE:
+						self.__castle_white.clear()
+					else:
+						self.__castle_black.clear()
+				case PieceType.ROOK:
+					# Remove the rook as a valid castling
+					# option if it moves
+					if piece_colour == PieceColour.WHITE:
+						if start_idx in self.__castle_white:
+							self.__castle_white.remove(start_idx)
+					else:
+						if start_idx in self.__castle_black:
+							self.__castle_black.remove(start_idx)
+				case PieceType.PAWN:
+					# Set enpassant if the piece moved two squares
+					if abs(end_idx - start_idx) > 20:
+						self.__enpassant = start_idx + ((end_idx - start_idx) // 2)
+			# Write the stored chess piece into the end index
+			self.__board[end_idx] = move_pieces[i]
+			# Clear the start index
+			self.__board[start_idx] = 0
+
 	def with_move(self, move: ChessMove) -> "Board":
 		"""Returns a new instance of the board with a given chess move applied.
 
@@ -783,6 +869,10 @@ class Board:
 		command += f"{pieceType}{squareFrom}{squareTo}"
 
 		return command
+
+	def set_gambit_as_player(self) -> None:
+		"""Sets Gambit as the active player."""
+		self.__active_move = self.get_gambit_colour()
 
 	def solve(
 		self, target_depth: int, target_time: float | None = None, max_time: float | None = None
