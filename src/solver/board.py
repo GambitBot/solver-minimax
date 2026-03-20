@@ -545,7 +545,7 @@ class Board:
 							# If the pawn has reached the other side of the board
 							# add promotions to queen and knight since those are
 							# the only two that matter.
-							if (pawn_direction == 1 and rank == 7) or (pawn_direction == -1 and rank == 0):
+							if (pawn_direction == 1 and rank == 6) or (pawn_direction == -1 and rank == 1):
 								moves.append(ChessMove(piece_num, i, new_idx, promotion=PieceType.QUEEN))
 								moves.append(ChessMove(piece_num, i, new_idx, promotion=PieceType.KNIGHT))
 							else:
@@ -729,6 +729,10 @@ class Board:
 		# Move the piece to its new location
 		self.__board[move.idx_to] = move.piece
 		self.__board[move.idx_from] = 0
+
+		# If the move was a promotion, update the type of the new piece
+		if move.promotion is not None:
+			self.__board[move.idx_to] = move.promotion + pieceColour
 
 		# If the move was a castling move, move the rook as well
 		if move.castle is not None:

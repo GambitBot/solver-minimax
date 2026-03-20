@@ -20,6 +20,18 @@
 				"--config",
 				"config.toml"
 			]
+		},
+		{
+			"name": "Debug with Viewer",
+			"type": "debugpy",
+			"request": "launch",
+			"module": "solver",
+			"args": [
+				"-s",
+				"--config",
+				"config.toml",
+				"--viewer"
+			]
 		}
 	]
 }
