@@ -1,5 +1,6 @@
 """Gambit solver IPC client"""
 
+import errno
 import logging
 import socket
 
@@ -29,7 +30,13 @@ class GambitClient:
 			sock.send(message.encode("utf-8"))
 			sock.shutdown(socket.SHUT_WR)
 			response = sock.recv(1000)
-			sock.shutdown(socket.SHUT_RDWR)
+			try:
+				sock.shutdown(socket.SHUT_RDWR)
+			except OSError as exc:
+				if exc.errno == errno.ENOTCONN:
+					pass  # Socket is not connected, so we can't send the FIN packet
+				else:
+					raise
 			if response.decode("utf-8") != "0":
 				_log.warning(
 					f"Unexpected response from ({self.server_address}:{self.server_port}): {response.decode('utf-8')}"
