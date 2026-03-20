@@ -15,6 +15,8 @@ class ArgNamespace(argparse.Namespace):
 
 	server: bool
 	configfile: str | None
+	viewer: bool
+	viewer_port: int
 
 
 def main() -> None:
@@ -25,12 +27,20 @@ def main() -> None:
 	parser = argparse.ArgumentParser()
 	parser.add_argument("-s", "--server", action="store_true", dest="server", help="Run as server")
 	parser.add_argument("-c", "--config", action="store", dest="configfile", help="Configuration file path")
+	parser.add_argument("--viewer", action="store_true", dest="viewer", help="Use Board viewer")
+	parser.add_argument(
+		"--viewer-port", action="store", type=int, dest="viewer_port", help="Board viewer port", default=8084
+	)
 	args = parser.parse_args(namespace=ArgNamespace())
 
 	if args.server:
 		# If started as a server
 		if args.configfile is not None:
-			run_server(args.configfile)
+			if args.viewer:
+				_log.info(f"Using Board viewer on port: {args.viewer_port}")
+				run_server(args.configfile, args.viewer_port)
+			else:
+				run_server(args.configfile)
 		else:
 			_log.error("Server requires a configuration file to run!")
 	else:

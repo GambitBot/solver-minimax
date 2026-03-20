@@ -223,9 +223,9 @@ class GambitServer:
 			self.__selector.close()
 
 
-def run_server(configfile: str) -> None:
+def run_server(configfile: str, viewer: int | None = None) -> None:
 	"""Runs the Gambit solver IPC server"""
 	_log.info("Running Gambit Solver server")
 	config = GambitConfig(configfile)
-	server = GambitServer(config)
+	server = GambitServer(config, viewer)
 	server.run()
