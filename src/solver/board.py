@@ -7,6 +7,7 @@ from enum import IntEnum
 
 import numpy as np
 
+from .boardmaps import BISHOP_MAP, KING_MAP, KNIGHT_MAP, PAWN_MAP_BLACK, PAWN_MAP_WHITE, QUEEN_MAP, ROOK_MAP
 from .piece import ChessPiece, PieceColour, PieceType
 
 INF = 10**9
@@ -466,13 +467,33 @@ class Board:
 				# Only proceed if a piece exists in this space
 				if ChessPiece.is_piece(self.__board[idx]):
 					piece_colour, piece_type = ChessPiece.decode_piece(self.__board[idx])
+					piece_weight = self.__piecetype_weights[piece_type]
+					match piece_type:
+						case PieceType.PAWN:
+							if (player == PieceColour.WHITE) == (not self.__reversed):
+								piece_weight += PAWN_MAP_WHITE[idx]
+							else:
+								piece_weight += PAWN_MAP_BLACK[idx]
+						case PieceType.ROOK:
+							piece_weight += ROOK_MAP[idx]
+						case PieceType.KNIGHT:
+							piece_weight += KNIGHT_MAP[idx]
+						case PieceType.BISHOP:
+							piece_weight += BISHOP_MAP[idx]
+						case PieceType.QUEEN:
+							piece_weight += QUEEN_MAP[idx]
+						case PieceType.KING:
+							if self.is_endgame():
+								piece_weight -= KING_MAP[idx]
+							else:
+								piece_weight += KING_MAP[idx]
 					# If the piece matches the player with the active move,
 					# increase the weight
 					if piece_colour == player:
-						w += self.__piecetype_weights[piece_type]
+						w += piece_weight
 					else:
 						# Otherwise, decrease the weight
-						w -= self.__piecetype_weights[piece_type]
+						w -= piece_weight
 		return w
 
 	def __move_linear(self, idx: int, directions: Iterable[int]) -> list[ChessMove]:
