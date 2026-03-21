@@ -13,6 +13,9 @@ from .config import GambitConfig
 
 _log = logging.getLogger(__name__)
 
+DEFAULT_FEN_WHITE = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
+DEFAULT_FEN_BLACK = "RNBQKBNR/PPPPPPPP/8/8/8/8/pppppppp/rnbqkbnr"
+
 
 class GambitServer:
 	"""Gambit Solver IPC server class"""
@@ -101,6 +104,8 @@ class GambitServer:
 					self.__command_debug_status()
 				case "move":
 					self.__command_move(data)
+				case "init":
+					self.__command_init(data)
 				case _:
 					_log.warning(f"Received invalid command: {command}")
 		except Exception as e:
@@ -204,6 +209,23 @@ class GambitServer:
 			_log.info(f"Selected move: {move}")
 			_log.debug(f"Sending move command: {moveCommand}")
 			self.client.send(moveCommand)
+
+	def __command_init(self, data: str) -> None:
+		# Input validation
+		data = data.casefold()
+		_log.info(f"Initializing board for Gambit playing as: {data}")
+		if data not in ("white", "black"):
+			_log.error(f"Invalid colour for board initialization: {data}")
+
+		# Start by resetting the board
+		self.board.reset()
+
+		if data == "white":
+			# If Gambit is playing as white, set up a fresh board and let it make a move.
+			self.__command_solve(DEFAULT_FEN_WHITE)
+		else:
+			# If Gambit is playing as black, set up a fresh board then wait for the player to move.
+			self.__command_update(DEFAULT_FEN_BLACK)
 
 	def run(self) -> None:
 		"""Runs the Gambit Solver IPC server.
