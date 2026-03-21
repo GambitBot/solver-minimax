@@ -5,6 +5,8 @@ import selectors
 import socket
 from typing import Callable
 
+from solver.exceptions import CheckmateException
+
 from .board import Board
 from .client import GambitClient
 from .config import GambitConfig
@@ -114,10 +116,16 @@ class GambitServer:
 		_log.info("Solving board state")
 		# Set Gambit as the active player before solving
 		self.board.set_gambit_as_player()
-		if self.config.search_target_time is not None:
-			move, _ = self.board.solve(self.config.search_depth, self.config.search_target_time, self.config.search_max_time)
-		else:
-			move, _ = self.board.solve(self.config.search_depth)
+		try:
+			if self.config.search_target_time is not None:
+				move, _ = self.board.solve(
+					self.config.search_depth, self.config.search_target_time, self.config.search_max_time
+				)
+			else:
+				move, _ = self.board.solve(self.config.search_depth)
+		except CheckmateException:
+			_log.info("Gambit is in Checkmate!")
+			return
 
 		if self.viewer:
 			# If we are using the viewer, we don't need to send
@@ -140,9 +148,12 @@ class GambitServer:
 	def __command_debug_solve(self, data: str) -> None:
 		_log.info(f"Solving for board state: {data}")
 		self.board.load_fen_string(data)
-		move, _ = self.board.solve(self.config.search_depth)
-		# Print results of the solve
-		print(f"Optimal move: {move}")
+		try:
+			move, _ = self.board.solve(self.config.search_depth)
+			# Print results of the solve
+			print(f"Optimal move: {move}")
+		except CheckmateException:
+			print("Checkmate. No moves available.")
 
 	def __command_update(self, data: str) -> None:
 		_log.info(f"Updating board with state: {data}")
@@ -164,10 +175,16 @@ class GambitServer:
 			self.client.send(fen)
 		# Set Gambit as the active player before solving
 		self.board.set_gambit_as_player()
-		if self.config.search_target_time is not None:
-			move, _ = self.board.solve(self.config.search_depth, self.config.search_target_time, self.config.search_max_time)
-		else:
-			move, _ = self.board.solve(self.config.search_depth)
+		try:
+			if self.config.search_target_time is not None:
+				move, _ = self.board.solve(
+					self.config.search_depth, self.config.search_target_time, self.config.search_max_time
+				)
+			else:
+				move, _ = self.board.solve(self.config.search_depth)
+		except CheckmateException:
+			_log.info("Gambit is in Checkmate!")
+			return
 
 		if self.viewer:
 			# If we are using the viewer, we don't need to send

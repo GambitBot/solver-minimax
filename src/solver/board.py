@@ -8,6 +8,7 @@ from enum import IntEnum
 import numpy as np
 
 from .boardmaps import BISHOP_MAP, KING_MAP, KNIGHT_MAP, PAWN_MAP_BLACK, PAWN_MAP_WHITE, QUEEN_MAP, ROOK_MAP
+from .exceptions import CheckmateException, NoKingException
 from .piece import ChessPiece, PieceColour, PieceType
 
 INF = 10**9
@@ -701,7 +702,15 @@ class Board:
 							# If we reach this point, that means that castling is a valid move
 							moves.append(ChessMove(piece_num, i, king_target_idx, castle=c))
 
-		return moves
+		# Validate that new moves don't put us in check.
+		# If we are currently in check, this also validates
+		# that the new move takes us out of check.
+		moves_filtered = []
+		for m in moves:
+			if not self.with_move(m).is_check(self.__active_move):
+				moves_filtered.append(m)
+
+		return moves_filtered
 
 	def apply_move(self, move: ChessMove) -> None:
 		"""Applies a move to the board.
@@ -931,12 +940,20 @@ class Board:
 		-------
 		tuple[ChessMove, int]
 			Optimal chess move, search depth reached
+
+		Raises
+		------
+		CheckmateException
+			Player is in Checkmate. No moves are available.
 		"""
 		# If the active player is not gambit, throw a warning here
 		if self.__active_move != self.get_gambit_colour():
 			_log.warning(f"Solving move for {self.__active_move} while Gambit is playing as {self.get_gambit_colour()}")
 		# Generate a list of moves that we could make
 		move_list = self.get_moves()
+		# If no moves are available, we are in Checkmate
+		if len(move_list) == 0:
+			raise CheckmateException
 		# Initialize an array of scores for each move
 		move_scores = np.zeros(len(move_list), dtype=np.int32)
 		# Initialize an array to hold the move order
@@ -1145,6 +1162,23 @@ class Board:
 		# If we reached the end, that means no piece is threatening the square
 		return False
 
+	def is_check(self, player: PieceColour) -> bool:
+		"""Checks if a specified player is in Check.
+
+		Parameters
+		----------
+		player : PieceColour
+			Player to check is in check
+
+		Returns
+		-------
+		bool
+			Player is in check
+		"""
+		king_idx = self.get_king_idx(player)
+		attacker = PieceColour.BLACK if player == PieceColour.WHITE else PieceColour.WHITE
+		return self.is_threatened(king_idx, attacker)
+
 	def is_in_check(self) -> bool:
 		"""Check if the current player is in check."""
 		# Find king position
@@ -1265,6 +1299,31 @@ class Board:
 			return tuple(self.__castle_black)
 		else:
 			return tuple()
+
+	def get_king_idx(self, player: PieceColour) -> int:
+		"""Returns the board index of the specified player's King.
+
+		Parameters
+		----------
+		player : PieceColour
+			Piece colour to search for.
+
+		Returns
+		-------
+		int
+			Board index of King.
+
+		Raises
+		------
+		NoKingException
+			No King found on board.
+		"""
+		result = np.flatnonzero(np.equal(self.__board, player + PieceType.KING))
+		try:
+			return int(result[0])
+		except Exception:
+			# If we didn't find the king, raise an exception
+			raise NoKingException
 
 	@staticmethod
 	def idx_from_rank_and_file(rank: int, file: int) -> int:
