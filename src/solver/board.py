@@ -988,7 +988,7 @@ class Board:
 		if not self.is_endgame():
 			# Null move pruning
 			if depth >= 4 and not self.is_in_check():
-				null_score = -self.__solve_recurse(
+				null_score = self.__solve_recurse(
 					player,
 					depth - 1 - 2,  # Reduce depth more aggressively
 					-beta,
@@ -1005,7 +1005,7 @@ class Board:
 
 		for move in self.get_moves():
 			child = self.with_move(move)
-			score = -child.__solve_recurse(
+			score = child.__solve_recurse(
 				player,
 				depth - 1,
 				-beta,
