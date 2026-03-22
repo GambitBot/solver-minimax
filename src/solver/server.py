@@ -163,6 +163,11 @@ class GambitServer:
 	def __command_update(self, data: str) -> None:
 		_log.info(f"Updating board with state: {data}")
 		self.board.update_board(data)
+		# If we have a viewer connected, update the board state
+		if self.viewer:
+			fen = self.board.to_partial_fen()
+			_log.info(f"Sending board to viewer: {fen}")
+			self.client.send(fen)
 
 	def __command_debug_status(self) -> None:
 		print("Current board state:")
