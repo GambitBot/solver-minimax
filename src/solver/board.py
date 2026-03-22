@@ -1138,7 +1138,7 @@ class Board:
 			value = -INF
 			for move in move_list:
 				value = max(value, self.with_move(move).__solve_recurse(player, depth - 1, alpha, beta))
-				if value > beta:
+				if value >= beta:
 					# Beta cutoff
 					break
 				alpha = max(alpha, value)
@@ -1147,7 +1147,7 @@ class Board:
 			value = INF
 			for move in move_list:
 				value = min(value, self.with_move(move).__solve_recurse(player, depth - 1, alpha, beta))
-				if value < alpha:
+				if value <= alpha:
 					# Alpha cutoff
 					break
 				beta = min(beta, value)
