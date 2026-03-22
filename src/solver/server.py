@@ -5,7 +5,7 @@ import selectors
 import socket
 from typing import Callable
 
-from solver.exceptions import CheckmateException
+from solver.exceptions import CheckmateException, StalemateException
 
 from .board import Board
 from .client import GambitClient
@@ -131,6 +131,9 @@ class GambitServer:
 		except CheckmateException:
 			_log.info("Gambit is in Checkmate!")
 			return
+		except StalemateException:
+			_log.info("Stalemate! No valid moves remaining.")
+			return
 
 		if self.viewer:
 			# If we are using the viewer, we don't need to send
@@ -168,6 +171,8 @@ class GambitServer:
 			print(f"Optimal move: {move}")
 		except CheckmateException:
 			print("Checkmate. No moves available.")
+		except StalemateException:
+			print("Stalemate. No moves available.")
 
 	def __command_update(self, data: str) -> None:
 		_log.info(f"Updating board with state: {data}")
@@ -203,6 +208,9 @@ class GambitServer:
 				move, _ = self.board.solve(self.config.search_depth)
 		except CheckmateException:
 			_log.info("Gambit is in Checkmate!")
+			return
+		except StalemateException:
+			_log.info("Stalemate! No valid moves remaining.")
 			return
 
 		if self.viewer:

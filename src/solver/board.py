@@ -15,7 +15,7 @@ from .boardmaps import (
 	ENDGAME_MAPS_WHITE,
 	EUCLIDEAN_DISTANCE_MAP,
 )
-from .exceptions import CheckmateException, NoKingException
+from .exceptions import CheckmateException, NoKingException, StalemateException
 from .piece import ChessPiece, PieceColour, PieceType
 
 INF = 10**9
@@ -1003,9 +1003,14 @@ class Board:
 			_log.warning(f"Solving move for {self.__active_move} while Gambit is playing as {self.get_gambit_colour()}")
 		# Generate a list of moves that we could make
 		move_list = self.get_moves()
-		# If no moves are available, we are in Checkmate
+		# If no moves are available, we are in a stalemate or in check
 		if len(move_list) == 0:
-			raise CheckmateException
+			if self.is_check(self.__active_move):
+				# In check with no moves means Checkmate
+				raise CheckmateException
+			else:
+				# No moves without being in check is a Stalemate
+				raise StalemateException
 		# Initialize an array of scores for each move
 		move_scores = np.zeros(len(move_list), dtype=np.int32)
 		# Initialize an array to hold the move order
