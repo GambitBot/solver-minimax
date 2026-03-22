@@ -7,7 +7,7 @@ from enum import IntEnum
 
 import numpy as np
 
-from .boardmaps import BISHOP_MAP, KING_MAP, KNIGHT_MAP, PAWN_MAP_BLACK, PAWN_MAP_WHITE, QUEEN_MAP, ROOK_MAP
+from .boardmaps import BOARD_MAPS_BLACK, BOARD_MAPS_WHITE, ENDGAME_MAPS_BLACK, ENDGAME_MAPS_WHITE
 from .exceptions import CheckmateException, NoKingException
 from .piece import ChessPiece, PieceColour, PieceType
 
@@ -20,6 +20,25 @@ DEFAULT_PIECETYPE_WEIGHTS = {
 	PieceType.KNIGHT: 300,
 	PieceType.PAWN: 100,
 }
+
+ENDGAME_PCT_WEIGHTS = {
+	PieceType.KING: 0,
+	PieceType.QUEEN: 45,
+	PieceType.ROOK: 20,
+	PieceType.BISHOP: 10,
+	PieceType.KNIGHT: 10,
+	PieceType.PAWN: 0,
+}
+
+# Define the starting endgame weight as a player having all of their
+# knights, bishops, rooks, and their queen
+ENDGAME_START_WEIGHT = (
+	ENDGAME_PCT_WEIGHTS[PieceType.QUEEN]
+	+ (2 * ENDGAME_PCT_WEIGHTS[PieceType.ROOK])
+	+ (2 * ENDGAME_PCT_WEIGHTS[PieceType.KNIGHT])
+	+ (2 * ENDGAME_PCT_WEIGHTS[PieceType.BISHOP])
+)
+
 
 _log = logging.getLogger(__name__)
 _rng = np.random.default_rng()
@@ -456,11 +475,15 @@ class Board:
 		int
 			Relative weight of the current board state.
 		"""
+		piece_weight: int
 		# Use the active player if not otherwise specified
 		if player is None:
 			player = self.__active_move
 		# Initialize the weight to zero
 		w = 0
+		# Get the endgame percentage
+		player_endgame_pct = self.get_endgame_pct(player)
+		opponent_endgame_pct = self.get_endgame_pct(player.opponent())
 		# Iterate through all of the pieces on the board
 		for rank in range(8):
 			for file in range(8):
@@ -469,25 +492,21 @@ class Board:
 				if ChessPiece.is_piece(self.__board[idx]):
 					piece_colour, piece_type = ChessPiece.decode_piece(self.__board[idx])
 					piece_weight = self.__piecetype_weights[piece_type]
-					match piece_type:
-						case PieceType.PAWN:
-							if (player == PieceColour.WHITE) == (not self.__reversed):
-								piece_weight += PAWN_MAP_WHITE[idx]
-							else:
-								piece_weight += PAWN_MAP_BLACK[idx]
-						case PieceType.ROOK:
-							piece_weight += ROOK_MAP[idx]
-						case PieceType.KNIGHT:
-							piece_weight += KNIGHT_MAP[idx]
-						case PieceType.BISHOP:
-							piece_weight += BISHOP_MAP[idx]
-						case PieceType.QUEEN:
-							piece_weight += QUEEN_MAP[idx]
-						case PieceType.KING:
-							if self.is_endgame():
-								piece_weight -= KING_MAP[idx]
-							else:
-								piece_weight += KING_MAP[idx]
+					if (piece_colour == PieceColour.WHITE) == (not self.__reversed):
+						board_map = BOARD_MAPS_WHITE[piece_type]
+						endgame_map = ENDGAME_MAPS_WHITE[piece_type]
+					else:
+						board_map = BOARD_MAPS_BLACK[piece_type]
+						endgame_map = ENDGAME_MAPS_BLACK[piece_type]
+
+					if piece_colour == player:
+						endgame_pct = player_endgame_pct
+					else:
+						endgame_pct = opponent_endgame_pct
+
+					# Apply the map values based on the endgame percentage
+					piece_weight += round(((1 - endgame_pct) * board_map[idx]) + (endgame_pct * endgame_map[idx]))
+
 					# If the piece matches the player with the active move,
 					# increase the weight
 					if piece_colour == player:
@@ -1269,7 +1288,7 @@ class Board:
 				return dx <= 1 and dy <= 1
 		return False
 
-	def is_endgame(self) -> bool:
+	def is_endgame(self, player: PieceColour) -> bool:
 		"""Check if the game is in an endgame phase (few pieces left)."""
 		piece_count = 0
 		for idx in range(128):
@@ -1281,6 +1300,32 @@ class Board:
 				):  # This is arbitrary but reasonable to still maintain speed but still play a good endgame
 					return False
 		return True
+
+	def get_endgame_pct(self, player: PieceColour) -> float:
+		"""Returns the endgame percentage for a given player.
+
+		Used to map between early and late-game position maps.
+
+		Parameters
+		----------
+		player : PieceColour
+			Active player.
+
+		Returns
+		-------
+		float
+			Endgame percentage.
+		"""
+		# Implementation adapted from Sebastian Lague's "Coding Adventure: Making a Better Chess Bot"
+		# video and Github repository: https://www.youtube.com/watch?v=_vqlIPDR2TU
+		opposing_indices = np.flatnonzero(np.bitwise_and(self.__board, player.opponent()))
+		opposing_pieces = self.__board[opposing_indices]
+		endgame_weight = 0
+		for piece_num in opposing_pieces:
+			_, piece_type = ChessPiece.decode_piece(piece_num)
+			endgame_weight += ENDGAME_PCT_WEIGHTS[piece_type]
+
+		return 1 - min(1, endgame_weight / ENDGAME_START_WEIGHT)
 
 	def is_initialized(self) -> bool:
 		"""Checks if the board is considered to be initialized.
