@@ -137,6 +137,7 @@ class GambitServer:
 			# anything to the movement bridge.
 			# Start by applying the move
 			self.board.apply_move(move)
+			_log.info(f"Selected move: {move}")
 			# Then send the board state to the viewer
 			fen = self.board.to_partial_fen()
 			_log.info(f"Sending board to viewer: {fen}")
@@ -149,6 +150,14 @@ class GambitServer:
 			_log.info(f"Selected move: {move}")
 			_log.debug(f"Sending move command: {moveCommand}")
 			self.client.send(moveCommand)
+
+		# Check if the human player is in checkmate
+		if self.board.is_check(self.board.get_gambit_colour().opponent()):
+			# Check if the human player has any moves left
+			if len(self.board.get_moves()) == 0:
+				_log.info("Checkmate! Gambit Wins!")
+			else:
+				_log.info("Human player is in check!")
 
 	def __command_debug_solve(self, data: str) -> None:
 		_log.info(f"Solving for board state: {data}")
@@ -214,6 +223,14 @@ class GambitServer:
 			_log.info(f"Selected move: {move}")
 			_log.debug(f"Sending move command: {moveCommand}")
 			self.client.send(moveCommand)
+
+		# Check if the human player is in checkmate
+		if self.board.is_check(self.board.get_gambit_colour().opponent()):
+			# Check if the human player has any moves left
+			if len(self.board.get_moves()) == 0:
+				_log.info("Checkmate! Gambit Wins!")
+			else:
+				_log.info("Human player is in check!")
 
 	def __command_init(self, data: str) -> None:
 		# Input validation

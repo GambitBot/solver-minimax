@@ -987,7 +987,7 @@ class Board:
 					break
 				move_idx = move_order[i]
 				m = move_list[move_idx]
-				move_scores[move_idx] = self.with_move(m).__solve_recurse(self.__active_move, depth, -INF, -alpha)
+				move_scores[move_idx] = self.with_move(m).__solve_recurse(self.__active_move, depth - 1, alpha, INF)
 				if move_scores[move_idx] > alpha:
 					alpha = int(move_scores[move_idx])
 
@@ -1026,56 +1026,82 @@ class Board:
 
 		return move_list[selected_idx], depth
 
-	def __solve_recurse(
-		self,
-		player: PieceColour,
-		depth: int,
-		alpha: int,
-		beta: int,
-	) -> int:
+	def __solve_recurse(self, player: PieceColour, depth: int, alpha: int, beta: int, captures_only: bool = False) -> int:
 		# Disable null move pruning if there are few pieces left
-		if not self.is_endgame():
-			# Null move pruning
-			if depth >= 4 and not self.is_in_check():
-				null_score = self.__solve_recurse(
-					player,
-					depth - 1 - 2,  # Reduce depth more aggressively
-					-beta,
-					-beta + 1,
-				)
-				if null_score >= beta:
-					return beta
+		# if not self.is_endgame():
+		# 	# Null move pruning
+		# 	if depth >= 4 and not self.is_in_check():
+		# 		null_score = self.__solve_recurse(
+		# 			player,
+		# 			depth - 1 - 2,  # Reduce depth more aggressively
+		# 			-beta,
+		# 			-beta + 1,
+		# 		)
+		# 		if null_score >= beta:
+		# 			return beta
 
-		# Base case: leaf node
-		if depth == 0:
-			return self.get_state_value(player)
+		# If a king is missing, return immediately
+		try:
+			self.get_king_idx(player)
+		except NoKingException:
+			# Player king is missing
+			return -INF
 
-		best = -INF
+		try:
+			self.get_king_idx(player.opponent())
+		except NoKingException:
+			# Opponent king is missing
+			return INF
 
-		for move in self.get_moves():
-			child = self.with_move(move)
-			score = child.__solve_recurse(
-				player,
-				depth - 1,
-				-beta,
-				-alpha,
-			)
+		# If we hit the bottom of the search, proceed by performing
+		# "capture-only" searches indefinitely.
+		if depth <= 0:
+			# Get the current board value
+			value = self.get_state_value(player)
+			# Perform a preliminary check to see if captures are good moves
+			if value >= alpha:
+				# If the current value is better than our "current best",
+				# return that value and stop the search
+				return value
+			# Update beta if necessary
+			elif value < beta:
+				beta = value
 
-			if score > best:
-				best = score
+			# Otherwise, set the captures only flag
+			captures_only = True
 
-			if score > alpha:
-				alpha = score
+		# Generate the move list
+		move_list = self.get_moves(captures_only=captures_only)
 
-			if alpha >= beta:
-				break  # beta cutoff
+		# If we didn't find any moves, return the current board value
+		# unless we have a stalemate
+		if len(move_list) == 0:
+			if depth <= 0:
+				return self.get_state_value(player)
+			else:
+				# Stalemate detected. Return 0
+				return 0
 
-			# Cutoff if the game has ended.
-			# Only a missing king could result in a score differential this high.
-			if abs(score) > 50000:
-				break
+		if player == self.__active_move:
+			# Evaluating moves for the active player. We want to maximize results.
+			value = -INF
+			for move in move_list:
+				value = max(value, self.with_move(move).__solve_recurse(player, depth - 1, alpha, beta))
+				if value >= beta:
+					# Beta cutoff
+					break
+				alpha = max(alpha, value)
+		else:
+			# Evaluating moves for the opposing player. We want to minimize results.
+			value = INF
+			for move in move_list:
+				value = min(value, self.with_move(move).__solve_recurse(player, depth - 1, alpha, beta))
+				if value <= alpha:
+					# Alpha cutoff
+					break
+				beta = min(beta, value)
 
-		return best
+		return value
 
 	def is_threatened(self, target_idx: int, attacker: PieceColour) -> bool:
 		"""Checks if a piece from the attacker is threatening the target board index.
