@@ -497,6 +497,59 @@ class Board:
 						w -= piece_weight
 		return w
 
+	def predict_move_scores(self, move_list: list[ChessMove]) -> np.ndarray[tuple[int], np.dtype[np.int32]]:
+		"""Predicts the scores for a series of moves.
+
+		Parameters
+		----------
+		move_list : list[ChessMove]
+			Move list to predict
+
+		Returns
+		-------
+		np.ndarray[tuple[int], np.int32]
+			Numpy array of predicted move scores. Equal in length to the provided move list.
+		"""
+		# Move prediction implemented using the method described in Sebastian Lague's
+		# video titled "Coding Adventure: Chess" https://www.youtube.com/watch?v=U4ogK0MIzqk
+
+		# Initialize the scores array
+		scores = np.zeros(len(move_list), dtype=np.int32)
+		# Get the pawn direction.
+		if (self.__active_move.opponent() == PieceColour.WHITE) == (not self.__reversed):
+			pawn_direction = 1
+		else:
+			pawn_direction = -1
+
+		# Generate a list of indices threatened by enemy pawns.
+		opposing_pawn_indices = np.flatnonzero(np.equal(self.__board, self.__active_move.opponent() + PieceType.PAWN))
+		pawn_attack_map = np.zeros(len(self.__board), dtype=bool)
+		for i in opposing_pawn_indices:
+			# It doesn't matter if these indices leave the valid board area
+			pawn_attack_map[i + (15 * pawn_direction)]
+			pawn_attack_map[i + (17 * pawn_direction)]
+
+		# Iterate through the provided moves to predict their scores
+		for i, move in enumerate(move_list):
+			_, move_piece_type = ChessPiece.decode_piece(move.piece)
+
+			# If the move is capturing a piece, prioritize capturing valuable pieces with
+			# less valuable pieces
+			if move.capture is not None:
+				_, capture_piece_type = ChessPiece.decode_piece(self.__board[move.capture])
+				scores[i] += (10 * self.__piecetype_weights[capture_piece_type]) - move_piece_type
+
+			# Pawn promotions are likely good moves
+			if move.promotion is not None:
+				scores[i] += self.__piecetype_weights[move.promotion]
+
+			# Avoid moving our pieces to squares attacked by opposing pawns
+			if pawn_attack_map[move.idx_to]:
+				# Assume that we will lose any piece that makes a move like this
+				scores[i] -= self.__piecetype_weights[move_piece_type]
+
+		return scores
+
 	def __move_linear(self, idx: int, directions: Iterable[int], captures_only: bool = False) -> list[ChessMove]:
 		"""Generates moves for repeatable linear motion (rooks, bishops, queens)
 
@@ -966,10 +1019,12 @@ class Board:
 		if len(move_list) == 0:
 			raise CheckmateException
 		# Initialize an array of scores for each move
-		move_scores = np.zeros(len(move_list), dtype=np.int32)
+		# Try to predict the best moves for the initial set of scores
+		move_scores = self.predict_move_scores(move_list)
 		# Initialize an array to hold the move order
-		move_order = np.array(tuple(range(len(move_list))), dtype=np.int16)
-
+		# This is sorted by the predicted move scores
+		move_order = move_scores.argsort()[::-1]
+		# move_order = np.array(tuple(range(len(move_list))), dtype=np.int16)
 		# Initialize the depth to avoid potential return errors
 		depth = 1
 
