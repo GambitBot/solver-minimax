@@ -7,7 +7,14 @@ from enum import IntEnum
 
 import numpy as np
 
-from .boardmaps import BOARD_MAPS_BLACK, BOARD_MAPS_WHITE, ENDGAME_MAPS_BLACK, ENDGAME_MAPS_WHITE
+from .boardmaps import (
+	BOARD_MAPS_BLACK,
+	BOARD_MAPS_WHITE,
+	CENTRE_MANHATTAN_DISTANCE_MAP,
+	ENDGAME_MAPS_BLACK,
+	ENDGAME_MAPS_WHITE,
+	EUCLIDEAN_DISTANCE_MAP,
+)
 from .exceptions import CheckmateException, NoKingException
 from .piece import ChessPiece, PieceColour, PieceType
 
@@ -514,6 +521,21 @@ class Board:
 					else:
 						# Otherwise, decrease the weight
 						w -= piece_weight
+
+		# If the score is already positive by at least 200 (two pawns worth), and the endgame
+		# percentage is not zero, add additional score for pushing the player's king
+		# close to the opposing King, and additional score for pushing the opposing king
+		# to the corner of the board.
+		# For performance reasons, these read from pre-computed lookup tables.
+		if (w > 200) and player_endgame_pct > 0:
+			player_king_idx = self.get_king_idx(player)
+			enemy_king_idx = self.get_king_idx(player.opponent())
+			# Score bonus for enemy king manhattan distance from board centre
+			w += CENTRE_MANHATTAN_DISTANCE_MAP[enemy_king_idx] * 10
+			# Score bonus for proximity between kings
+			# 10 is the greatest score between opposite board corners
+			w += (10 - EUCLIDEAN_DISTANCE_MAP[player_king_idx][enemy_king_idx]) * 4
+
 		return w
 
 	def __move_linear(self, idx: int, directions: Iterable[int], captures_only: bool = False) -> list[ChessMove]:

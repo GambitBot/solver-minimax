@@ -1,5 +1,7 @@
 """Gambit Solver Piece-Type Board Maps"""
 
+from math import sqrt
+
 import numpy as np
 
 from .piece import PieceType
@@ -225,3 +227,33 @@ ENDGAME_MAPS_BLACK = {
 	PieceType.QUEEN: np.hstack((_queen_endgame_map, _zeros)).reshape(128),
 	PieceType.KING: np.hstack((_king_endgame_map, _zeros)).reshape(128),
 }
+
+# Board map for Mahnattan distance from centre squares
+CENTRE_MANHATTAN_DISTANCE_MAP = np.hstack(
+	(
+		np.array(
+			(
+				# A, B, C, D, E, F, G, H
+				(6, 5, 4, 3, 3, 4, 5, 6),  # 8
+				(5, 4, 3, 2, 2, 3, 4, 5),
+				(4, 3, 2, 1, 1, 2, 3, 4),
+				(3, 2, 1, 0, 0, 1, 2, 3),
+				(3, 2, 1, 0, 0, 1, 2, 3),
+				(4, 3, 2, 1, 1, 2, 3, 4),
+				(5, 4, 3, 2, 2, 3, 4, 5),
+				(6, 5, 4, 3, 3, 4, 5, 6),  # 1
+			)
+		),
+		_zeros,
+	)
+).reshape(128)
+
+# Generate a board map for euclidean distance between indices.
+EUCLIDEAN_DISTANCE_MAP = np.zeros((128, 128), dtype=np.uint8)
+for i in range(EUCLIDEAN_DISTANCE_MAP.shape[0]):
+	i_x = i & 0x0F
+	i_y = (i & 0xF0) >> 4
+	for j in range(EUCLIDEAN_DISTANCE_MAP.shape[1]):
+		j_x = j & 0x0F
+		j_y = (j & 0xF0) >> 4
+		EUCLIDEAN_DISTANCE_MAP[i][j] = np.int8(round(sqrt((j_x - i_x) ** 2 + (j_y - i_y) ** 2)))
