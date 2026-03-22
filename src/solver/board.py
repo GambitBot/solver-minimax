@@ -497,7 +497,7 @@ class Board:
 						w -= piece_weight
 		return w
 
-	def __move_linear(self, idx: int, directions: Iterable[int]) -> list[ChessMove]:
+	def __move_linear(self, idx: int, directions: Iterable[int], captures_only: bool = False) -> list[ChessMove]:
 		"""Generates moves for repeatable linear motion (rooks, bishops, queens)
 
 		Parameters
@@ -506,6 +506,8 @@ class Board:
 			Piece starting index
 		directions : list[int]
 			Index directions to move
+		captures_only : bool, optional
+			Only return captures, by default False
 
 		Returns
 		-------
@@ -526,12 +528,18 @@ class Board:
 					# Regardless of if the piece could be captured or not, stop the loop
 					break
 				# If the space was blank, add a move to move there
-				moves.append(ChessMove(piece_num, idx, new_idx))
+				if not captures_only:
+					moves.append(ChessMove(piece_num, idx, new_idx))
 				new_idx += m
 		return moves
 
-	def get_moves(self) -> list[ChessMove]:
+	def get_moves(self, captures_only: bool = False) -> list[ChessMove]:
 		"""Returns possible moves by the active player.
+
+		Parameters
+		----------
+		captures_only : bool, optional
+			Only return captures, by default False
 
 		Returns
 		-------
@@ -559,25 +567,27 @@ class Board:
 					# Pawns have special move handling since it's very conditional
 					# Exact rank only matters to pawns when moving
 					rank, file = Board.idx_to_rank_and_file(i)
-					# Check a direct move forward
-					new_idx = i + (16 * pawn_direction)
-					if Board.idx_on_board(new_idx):
-						# If the square ahead of the pawn is empty, add the move
-						if not ChessPiece.is_piece(self.__board[new_idx]):
-							# If the pawn has reached the other side of the board
-							# add promotions to queen and knight since those are
-							# the only two that matter.
-							if (pawn_direction == 1 and rank == 6) or (pawn_direction == -1 and rank == 1):
-								moves.append(ChessMove(piece_num, i, new_idx, promotion=PieceType.QUEEN))
-								moves.append(ChessMove(piece_num, i, new_idx, promotion=PieceType.KNIGHT))
-							else:
-								moves.append(ChessMove(piece_num, i, new_idx))
+					# Only scan for regular moves if we're not only looking for captures
+					if not captures_only:
+						# Check a direct move forward
+						new_idx = i + (16 * pawn_direction)
+						if Board.idx_on_board(new_idx):
+							# If the square ahead of the pawn is empty, add the move
+							if not ChessPiece.is_piece(self.__board[new_idx]):
+								# If the pawn has reached the other side of the board
+								# add promotions to queen and knight since those are
+								# the only two that matter.
+								if (pawn_direction == 1 and rank == 6) or (pawn_direction == -1 and rank == 1):
+									moves.append(ChessMove(piece_num, i, new_idx, promotion=PieceType.QUEEN))
+									moves.append(ChessMove(piece_num, i, new_idx, promotion=PieceType.KNIGHT))
+								else:
+									moves.append(ChessMove(piece_num, i, new_idx))
 
-					# If the pawn is in its starting row, it can move twice
-					if (pawn_direction == 1 and rank == 1) or (pawn_direction == -1 and rank == 6):
-						new_idx = i + (32 * pawn_direction)
-						if not ChessPiece.is_piece(self.__board[new_idx]):
-							moves.append(ChessMove(piece_num, i, new_idx))
+						# If the pawn is in its starting row, it can move twice
+						if (pawn_direction == 1 and rank == 1) or (pawn_direction == -1 and rank == 6):
+							new_idx = i + (32 * pawn_direction)
+							if not ChessPiece.is_piece(self.__board[new_idx]):
+								moves.append(ChessMove(piece_num, i, new_idx))
 					# Check for captures or en-passant
 					for m in (15, 17):
 						new_idx = i + (m * pawn_direction)
@@ -605,7 +615,7 @@ class Board:
 
 				case PieceType.ROOK:
 					# Rooks can move any cardinal direction
-					moves += self.__move_linear(i, (16, 1, -16, -1))
+					moves += self.__move_linear(i, (16, 1, -16, -1), captures_only)
 
 				case PieceType.KNIGHT:
 					# Knights can only move to specific nearby squares
@@ -620,18 +630,18 @@ class Board:
 							):
 								# Target square contains an enemy piece that can be captured
 								moves.append(ChessMove(piece_num, i, new_idx, capture=new_idx))
-							elif not ChessPiece.is_piece(self.__board[new_idx]):
+							elif not ChessPiece.is_piece(self.__board[new_idx]) and not captures_only:
 								# Target square is empty
 								moves.append(ChessMove(piece_num, i, new_idx))
 							# If the target square contains a friendly piece, nothing happens
 
 				case PieceType.BISHOP:
 					# Bishops can move diagonally
-					moves += self.__move_linear(i, (15, 17, -15, -17))
+					moves += self.__move_linear(i, (15, 17, -15, -17), captures_only)
 
 				case PieceType.QUEEN:
 					# Queens can move along cardinal directions, or diagonally
-					moves += self.__move_linear(i, (15, 16, 17, 1, -15, -16, -17, -1))
+					moves += self.__move_linear(i, (15, 16, 17, 1, -15, -16, -17, -1), captures_only)
 
 				case PieceType.KING:
 					# The king can move in any direction, but only by one tile at a time
@@ -644,7 +654,7 @@ class Board:
 								and ChessPiece.decode_piece(self.__board[new_idx])[0] != self.__active_move
 							):
 								moves.append(ChessMove(piece_num, i, new_idx, capture=new_idx))
-							elif not ChessPiece.is_piece(self.__board[new_idx]):
+							elif not ChessPiece.is_piece(self.__board[new_idx]) and not captures_only:
 								moves.append(ChessMove(piece_num, i, new_idx))
 
 					# Check for castling validity
