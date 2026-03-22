@@ -658,59 +658,60 @@ class Board:
 								moves.append(ChessMove(piece_num, i, new_idx))
 
 					# Check for castling validity
-					# Castling is only valid if the king is not in check (i.e. being threatened)
-					attacker = PieceColour.BLACK if self.__active_move == PieceColour.WHITE else PieceColour.WHITE
-					if not self.is_threatened(i, attacker):
-						castle_indices = self.get_valid_castling_idx(self.__active_move)
+					if not captures_only:
+						# Castling is only valid if the king is not in check (i.e. being threatened)
+						attacker = PieceColour.BLACK if self.__active_move == PieceColour.WHITE else PieceColour.WHITE
+						if not self.is_threatened(i, attacker):
+							castle_indices = self.get_valid_castling_idx(self.__active_move)
 
-						for c in castle_indices:
-							# Initialize the target index at 1
-							king_target_idx = 1
-							if self.__reversed:
-								# If White is the active player, add 70
-								if self.__active_move == PieceColour.WHITE:
-									king_target_idx += 70
-							else:
-								# If the board is not reversed, add 1
-								king_target_idx += 1
-								# If Black is the active player, add 70
-								if self.__active_move == PieceColour.BLACK:
-									king_target_idx += 71
-							# If the target is a higher index than the King, add 4
-							if c > i:
-								king_target_idx += 4
+							for c in castle_indices:
+								# Initialize the target index at 1
+								king_target_idx = 1
+								if self.__reversed:
+									# If White is the active player, add 70
+									if self.__active_move == PieceColour.WHITE:
+										king_target_idx += 70
+								else:
+									# If the board is not reversed, add 1
+									king_target_idx += 1
+									# If Black is the active player, add 70
+									if self.__active_move == PieceColour.BLACK:
+										king_target_idx += 71
+								# If the target is a higher index than the King, add 4
+								if c > i:
+									king_target_idx += 4
 
-							# Check that all squares between the king and rook are empty
-							valid = True
-							castle_check_indices = sorted((i, c))
-							castle_check_range = tuple(range(castle_check_indices[0] + 1, castle_check_indices[1]))
-							for j in castle_check_range:
-								if ChessPiece.is_piece(self.__board[j]):
-									valid = False
-									break
+								# Check that all squares between the king and rook are empty
+								valid = True
+								castle_check_indices = sorted((i, c))
+								castle_check_range = tuple(range(castle_check_indices[0] + 1, castle_check_indices[1]))
+								for j in castle_check_range:
+									if ChessPiece.is_piece(self.__board[j]):
+										valid = False
+										break
 
-							# If we found a piece between the king and rook, stop further checks
-							if not valid:
-								continue
-
-							# Check that all squares that the king will past through are not threatened
-							castle_check_indices = sorted((i, king_target_idx))
-							castle_check_range = tuple(range(castle_check_indices[0], castle_check_indices[1] + 1))
-							for j in castle_check_range:
-								if j == i:
-									# Don't check the King's current square a second time
+								# If we found a piece between the king and rook, stop further checks
+								if not valid:
 									continue
 
-								if self.is_threatened(j, attacker):
-									valid = False
-									break
+								# Check that all squares that the king will past through are not threatened
+								castle_check_indices = sorted((i, king_target_idx))
+								castle_check_range = tuple(range(castle_check_indices[0], castle_check_indices[1] + 1))
+								for j in castle_check_range:
+									if j == i:
+										# Don't check the King's current square a second time
+										continue
 
-							# If the king would be threatened, stop further checks
-							if not valid:
-								continue
+									if self.is_threatened(j, attacker):
+										valid = False
+										break
 
-							# If we reach this point, that means that castling is a valid move
-							moves.append(ChessMove(piece_num, i, king_target_idx, castle=c))
+								# If the king would be threatened, stop further checks
+								if not valid:
+									continue
+
+								# If we reach this point, that means that castling is a valid move
+								moves.append(ChessMove(piece_num, i, king_target_idx, castle=c))
 
 		# Validate that new moves don't put us in check.
 		# If we are currently in check, this also validates
