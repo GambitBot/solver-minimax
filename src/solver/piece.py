@@ -27,6 +27,21 @@ class PieceColour(IntEnum):
 		"""
 		return self.name
 
+	def opponent(self) -> "PieceColour":
+		"""Returns the opponent of the current piece colour.
+
+		Returns
+		-------
+		PieceColour
+			Opposing piece colour.
+		"""
+		if self == PieceColour.WHITE:
+			return PieceColour.BLACK
+		elif self == PieceColour.BLACK:
+			return PieceColour.WHITE
+		else:
+			return PieceColour.NONE
+
 
 class PieceType(IntEnum):
 	"""Chess piece type"""
