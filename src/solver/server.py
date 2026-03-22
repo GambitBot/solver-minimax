@@ -14,7 +14,7 @@ from .config import GambitConfig
 _log = logging.getLogger(__name__)
 
 DEFAULT_FEN_WHITE = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
-DEFAULT_FEN_BLACK = "RNBQKBNR/PPPPPPPP/8/8/8/8/pppppppp/rnbqkbnr"
+DEFAULT_FEN_BLACK = "RNBKQBNR/PPPPPPPP/8/8/8/8/pppppppp/rnbkqbnr"
 
 
 class GambitServer:
