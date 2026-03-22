@@ -13,7 +13,7 @@ from .boardmaps import (
 	CENTRE_MANHATTAN_DISTANCE_MAP,
 	ENDGAME_MAPS_BLACK,
 	ENDGAME_MAPS_WHITE,
-	EUCLIDEAN_DISTANCE_MAP,
+	ORTHOGONAL_DISTANCE_MAP,
 )
 from .exceptions import CheckmateException, NoKingException, StalemateException
 from .piece import ChessPiece, PieceColour, PieceType
@@ -97,6 +97,10 @@ class ChessMove:
 		if self.promotion is not None:
 			s += f" | Promotion: {ChessPiece.to_string(np.uint8(self.promotion))}"
 		return s
+
+	def __repr__(self) -> str:
+		"""Return a string representation of a move."""
+		return f"{ChessPiece.to_string(self.piece)} {Board.idx_to_square(self.idx_from)}{Board.idx_to_square(self.idx_to)}"
 
 
 class Difficulty(IntEnum):
@@ -533,8 +537,8 @@ class Board:
 			# Score bonus for enemy king manhattan distance from board centre
 			w += CENTRE_MANHATTAN_DISTANCE_MAP[enemy_king_idx] * 10
 			# Score bonus for proximity between kings
-			# 10 is the greatest score between opposite board corners
-			w += (10 - EUCLIDEAN_DISTANCE_MAP[player_king_idx][enemy_king_idx]) * 4
+			# 14 is the greatest score between opposite board corners
+			w += (14 - ORTHOGONAL_DISTANCE_MAP[player_king_idx][enemy_king_idx]) * 4
 
 		return w
 
@@ -624,11 +628,12 @@ class Board:
 								else:
 									moves.append(ChessMove(piece_num, i, new_idx))
 
-						# If the pawn is in its starting row, it can move twice
-						if (pawn_direction == 1 and rank == 1) or (pawn_direction == -1 and rank == 6):
-							new_idx = i + (32 * pawn_direction)
-							if not ChessPiece.is_piece(self.__board[new_idx]):
-								moves.append(ChessMove(piece_num, i, new_idx))
+								# If the pawn is in its starting row, it can move twice
+								# only if the single move is also valid
+								if (pawn_direction == 1 and rank == 1) or (pawn_direction == -1 and rank == 6):
+									new_idx = i + (32 * pawn_direction)
+									if not ChessPiece.is_piece(self.__board[new_idx]):
+										moves.append(ChessMove(piece_num, i, new_idx))
 					# Check for captures or en-passant
 					for m in (15, 17):
 						new_idx = i + (m * pawn_direction)
@@ -1027,11 +1032,11 @@ class Board:
 			_log.debug(f"Starting depth {depth} search")
 			# Initialize alpha to -infinity
 			alpha = -INF
-			for i in move_order:
+			for move_idx in move_order:
 				if cut_time is not None and time.time() > cut_time:
 					_log.debug("Maximum time exceeded for search. Stopping immediately.")
 					break
-				move_idx = move_order[i]
+				# move_idx = move_order[i]
 				m = move_list[move_idx]
 				move_scores[move_idx] = self.with_move(m).__solve_recurse(self.__active_move, depth - 1, alpha, INF)
 				if move_scores[move_idx] > alpha:
@@ -1133,7 +1138,7 @@ class Board:
 			value = -INF
 			for move in move_list:
 				value = max(value, self.with_move(move).__solve_recurse(player, depth - 1, alpha, beta))
-				if value >= beta:
+				if value > beta:
 					# Beta cutoff
 					break
 				alpha = max(alpha, value)
@@ -1142,7 +1147,7 @@ class Board:
 			value = INF
 			for move in move_list:
 				value = min(value, self.with_move(move).__solve_recurse(player, depth - 1, alpha, beta))
-				if value <= alpha:
+				if value < alpha:
 					# Alpha cutoff
 					break
 				beta = min(beta, value)

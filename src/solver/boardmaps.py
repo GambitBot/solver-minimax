@@ -1,6 +1,6 @@
 """Gambit Solver Piece-Type Board Maps"""
 
-from math import sqrt
+# from math import sqrt
 
 import numpy as np
 
@@ -249,11 +249,13 @@ CENTRE_MANHATTAN_DISTANCE_MAP = np.hstack(
 ).reshape(128)
 
 # Generate a board map for euclidean distance between indices.
-EUCLIDEAN_DISTANCE_MAP = np.zeros((128, 128), dtype=np.uint8)
-for i in range(EUCLIDEAN_DISTANCE_MAP.shape[0]):
+ORTHOGONAL_DISTANCE_MAP = np.zeros((128, 128), dtype=np.uint8)
+for i in range(ORTHOGONAL_DISTANCE_MAP.shape[0]):
 	i_x = i & 0x0F
 	i_y = (i & 0xF0) >> 4
-	for j in range(EUCLIDEAN_DISTANCE_MAP.shape[1]):
+	for j in range(ORTHOGONAL_DISTANCE_MAP.shape[1]):
 		j_x = j & 0x0F
 		j_y = (j & 0xF0) >> 4
-		EUCLIDEAN_DISTANCE_MAP[i][j] = np.int8(round(sqrt((j_x - i_x) ** 2 + (j_y - i_y) ** 2)))
+		ORTHOGONAL_DISTANCE_MAP[i][j] = abs(j_x - i_x) + abs(j_y - i_y)
+		# ORTHOGONAL_DISTANCE_MAP[i][j] = max(abs(j_x - i_x), abs(j_y - i_y))
+		# KING_DISTANCE_MAP[i][j] = np.int8(round(sqrt((j_x - i_x) ** 2 + (j_y - i_y) ** 2)))
