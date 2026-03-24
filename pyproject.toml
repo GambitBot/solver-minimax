@@ -16,7 +16,7 @@ classifiers = [
 ]
 
 # Only add dependencies to run the package here
-dependencies = ["numpy>=2.3,<2.4"]
+dependencies = ["numpy>=2.3,<2.4", "stockfish>=4.0,<5.0"]
 
 [project.urls]
 Repository = "https://github.com/GambitBot/solver-minimax"

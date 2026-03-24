@@ -5,6 +5,8 @@ import selectors
 import socket
 from typing import Callable
 
+from stockfish import Stockfish
+
 from solver.exceptions import CheckmateException, StalemateException
 
 from .board import Board
@@ -22,7 +24,7 @@ class GambitServer:
 
 	board: Board
 
-	def __init__(self, config: GambitConfig, viewer: int | None = None) -> None:
+	def __init__(self, config: GambitConfig, viewer: int | None = None, stockfish: bool = False) -> None:
 		"""Initializes a Gambit Solver IPC server"""
 		self.board = Board()
 		# Configuration object
@@ -42,6 +44,13 @@ class GambitServer:
 		else:
 			self.client = GambitClient(viewer)
 			self.viewer = True
+		# Stockfish
+		self.use_stockfish = stockfish
+		if stockfish:
+			assert config.stockfish_path is not None
+			self.stockfish = Stockfish(
+				path=config.stockfish_path, parameters={"Threads": 6, "Hash": 2048, "UCI_Chess960": True}
+			)
 
 	def __socket_accept(self, sock: socket.socket) -> None:
 		assert self.__selector is not None  # This makes the type-checker happy
@@ -142,7 +151,7 @@ class GambitServer:
 			self.board.apply_move(move)
 			_log.info(f"Selected move: {move}")
 			# Then send the board state to the viewer
-			fen = self.board.to_partial_fen()
+			fen = self.board.to_fen()
 			_log.info(f"Sending board to viewer: {fen}")
 			self.client.send(fen)
 		else:
@@ -179,7 +188,7 @@ class GambitServer:
 		self.board.update_board(data)
 		# If we have a viewer connected, update the board state
 		if self.viewer:
-			fen = self.board.to_partial_fen()
+			fen = self.board.to_fen()
 			_log.info(f"Sending board to viewer: {fen}")
 			self.client.send(fen)
 
@@ -195,7 +204,7 @@ class GambitServer:
 		self.board.apply_manual_moves(data)
 		# Send the updated board state to the viewer if we're using the viewer
 		if self.viewer:
-			fen = self.board.to_partial_fen()
+			fen = self.board.to_fen()
 			self.client.send(fen)
 		# Set Gambit as the active player before solving
 		self.board.set_gambit_as_player()
@@ -219,7 +228,7 @@ class GambitServer:
 			# Start by applying the move
 			self.board.apply_move(move)
 			# Then send the board state to the viewer
-			fen = self.board.to_partial_fen()
+			fen = self.board.to_fen()
 			_log.info(f"Selected move: {move}")
 			_log.info(f"Sending board to viewer: {fen}")
 			self.client.send(fen)
@@ -293,9 +302,9 @@ class GambitServer:
 			self.__selector.close()
 
 
-def run_server(configfile: str, viewer: int | None = None) -> None:
+def run_server(configfile: str, viewer: int | None = None, stockfish: bool = False) -> None:
 	"""Runs the Gambit solver IPC server"""
 	_log.info("Running Gambit Solver server")
 	config = GambitConfig(configfile)
-	server = GambitServer(config, viewer)
+	server = GambitServer(config, viewer, stockfish)
 	server.run()

@@ -15,6 +15,7 @@ class GambitConfig:
 	search_depth: int
 	search_target_time: float | None
 	search_max_time: float | None
+	stockfish_path: str | None
 
 	def __init__(self, file: str | pathlib.Path):
 		"""Initializes a configuration object
@@ -46,3 +47,4 @@ class GambitConfig:
 		else:
 			_log.info("Target search time not found. Ignoring max search time entries.")
 			self.search_max_time = None
+		self.stockfish_path = t["solution"].get("stockfish_path", None)

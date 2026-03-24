@@ -291,7 +291,7 @@ class Board:
 		# Set the board as initialized
 		self.__initialized = True
 
-	def to_partial_fen(self) -> str:
+	def to_fen(self) -> str:
 		"""Returns the piece locations as a partial FEN string
 
 		Returns
@@ -301,7 +301,8 @@ class Board:
 		"""
 		# Get current piece locations
 		# Ranks count down from the top of the board
-		board_str = ""
+		fen_parts: list[str] = []
+		fen_parts.append("")
 		empty_count = 0
 		for rank in reversed(range(0, 8)):
 			for file in range(0, 8):
@@ -313,21 +314,50 @@ class Board:
 					continue
 				# We have a valid piece by this point
 				if empty_count > 0:
-					board_str += str(empty_count)
+					fen_parts[0] += str(empty_count)
 					empty_count = 0
-				board_str += ChessPiece.to_FEN(self.__board[idx])
+				fen_parts[0] += ChessPiece.to_FEN(self.__board[idx])
 
 			# We have reached the end of the rank
 			# If the empty count is not zero, write it to the board string
 			if empty_count > 0:
-				board_str += str(empty_count)
+				fen_parts[0] += str(empty_count)
 			# Reset the empty space count
 			empty_count = 0
 			# If it is not the last rank, add a forward slash as a separator
 			if rank != 0:
-				board_str += "/"
+				fen_parts[0] += "/"
 
-		return board_str
+		# Add next to move
+		if self.__active_move == PieceColour.WHITE:
+			fen_parts.append("w")
+		else:
+			fen_parts.append("b")
+
+		# Casting info
+		if len(self.__castle_white) == 0 and len(self.__castle_black) == 0:
+			# No castling
+			fen_parts.append("-")
+		else:
+			fen_parts.append("")
+			for c in self.__castle_white:
+				fen_parts[2] += Board.idx_to_square(c)[0].upper()
+			for c in self.__castle_black:
+				fen_parts[2] += Board.idx_to_square(c)[0].lower()
+
+		# En passant
+		if self.__enpassant is not None:
+			fen_parts.append(Board.idx_to_square(self.__enpassant))
+		else:
+			fen_parts.append("-")
+
+		# Halfmove clock
+		fen_parts.append(str(self.__halfmove_clock))
+
+		# Full move count
+		fen_parts.append(str(self.__move_count))
+
+		return (" ").join(fen_parts)
 
 	def update_board(self, boardstate: str) -> None:
 		"""Parses the piece location part of the FEN string.
@@ -444,7 +474,7 @@ class Board:
 		# We will always parse board states from the same point of view
 		# of the board, regardless of which colour starts on each side.
 		# These do not exactly match with the real ranks and files used
-		# on a chess board, but they work better for computer calcualtion
+		# on a chess board, but they work better for computer calculation
 		rank = 7
 		file = 0
 
@@ -866,6 +896,31 @@ class Board:
 			# Handle piece-specific flags
 			match piece_type:
 				case PieceType.KING:
+					# If the king moved two tiles, handle it as a castling operation
+					if abs(end_idx - start_idx) > 1:
+						castling_indices = self.get_valid_castling_idx(self.__active_move)
+						rook_idx = None
+						if end_idx > start_idx:
+							# Search for castling indices above the king index
+							for c in castling_indices:
+								if c > start_idx:
+									rook_idx = c
+									break
+						else:
+							# Search for castling indices below the king index
+							for c in castling_indices:
+								if c < start_idx:
+									rook_idx = c
+									break
+
+						if rook_idx is not None:
+							# Place the rook on the tile next to the king's destination
+							if end_idx > start_idx:
+								self.__board[end_idx - 1] = self.__board[rook_idx]
+							else:
+								self.__board[end_idx + 1] = self.__board[rook_idx]
+							self.__board[rook_idx] = 0
+
 					# Clear castling options if kings move
 					if piece_colour == PieceColour.WHITE:
 						self.__castle_white.clear()
@@ -895,6 +950,10 @@ class Board:
 			self.__board[end_idx] = move_pieces[i]
 			# Clear the start index
 			self.__board[start_idx] = 0
+
+			# If a new piece type was specified, update the piece target
+			if len(m) == 5:
+				self.__board[end_idx] = piece_colour + (ChessPiece.decode_piece(ChessPiece.from_FEN(m[4]))[1])
 
 	def with_move(self, move: ChessMove) -> "Board":
 		"""Returns a new instance of the board with a given chess move applied.
