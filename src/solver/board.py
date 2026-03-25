@@ -1029,7 +1029,7 @@ class Board:
 			castleType = ChessPiece.to_FEN(self.__board[move.castle]).casefold()
 			castleFrom = Board.idx_to_square(move.castle)
 			castleTo = Board.idx_to_square(castleTargetIdx)
-			command += f"{castleType}{castleFrom}{castleTo},"
+			command += f",{castleType}{castleFrom}{castleTo}"
 
 		return command
 
