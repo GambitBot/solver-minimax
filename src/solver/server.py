@@ -130,19 +130,33 @@ class GambitServer:
 		_log.info("Solving board state")
 		# Set Gambit as the active player before solving
 		self.board.set_gambit_as_player()
-		try:
+		if self.use_stockfish:
+			# Send stockfish the new board state
+			self.stockfish.set_fen_position(self.board.to_fen())
+			# Perform the move search
 			if self.config.search_target_time is not None:
-				move, _ = self.board.solve(
-					self.config.search_depth, self.config.search_target_time, self.config.search_max_time
-				)
+				stockfish_move = self.stockfish.get_best_move_time(int(self.config.search_target_time * 1000))
 			else:
-				move, _ = self.board.solve(self.config.search_depth)
-		except CheckmateException:
-			_log.info("Gambit is in Checkmate!")
-			return
-		except StalemateException:
-			_log.info("Stalemate! No valid moves remaining.")
-			return
+				stockfish_move = self.stockfish.get_best_move()
+			if stockfish_move is not None:
+				move = self.board.get_move_from_stockfish(stockfish_move)
+			else:
+				_log.info("Gambit is in Checkmate!")
+				return
+		else:
+			try:
+				if self.config.search_target_time is not None:
+					move, _ = self.board.solve(
+						self.config.search_depth, self.config.search_target_time, self.config.search_max_time
+					)
+				else:
+					move, _ = self.board.solve(self.config.search_depth)
+			except CheckmateException:
+				_log.info("Gambit is in Checkmate!")
+				return
+			except StalemateException:
+				_log.info("Stalemate! No valid moves remaining.")
+				return
 
 		if self.viewer:
 			# If we are using the viewer, we don't need to send
@@ -185,6 +199,10 @@ class GambitServer:
 
 	def __command_update(self, data: str) -> None:
 		_log.info(f"Updating board with state: {data}")
+		# If the board is not yet initialized, and stockfish is in use
+		# send the new game command to stockfish
+		if self.use_stockfish and not self.board.is_initialized():
+			self.stockfish.send_ucinewgame_command()
 		self.board.update_board(data)
 		# If we have a viewer connected, update the board state
 		if self.viewer:
@@ -208,19 +226,33 @@ class GambitServer:
 			self.client.send(fen)
 		# Set Gambit as the active player before solving
 		self.board.set_gambit_as_player()
-		try:
+		if self.use_stockfish:
+			# Send stockfish the new board state
+			self.stockfish.set_fen_position(self.board.to_fen())
+			# Perform the move search
 			if self.config.search_target_time is not None:
-				move, _ = self.board.solve(
-					self.config.search_depth, self.config.search_target_time, self.config.search_max_time
-				)
+				stockfish_move = self.stockfish.get_best_move_time(int(self.config.search_target_time * 1000))
 			else:
-				move, _ = self.board.solve(self.config.search_depth)
-		except CheckmateException:
-			_log.info("Gambit is in Checkmate!")
-			return
-		except StalemateException:
-			_log.info("Stalemate! No valid moves remaining.")
-			return
+				stockfish_move = self.stockfish.get_best_move()
+			if stockfish_move is not None:
+				move = self.board.get_move_from_stockfish(stockfish_move)
+			else:
+				_log.info("Gambit is in Checkmate!")
+				return
+		else:
+			try:
+				if self.config.search_target_time is not None:
+					move, _ = self.board.solve(
+						self.config.search_depth, self.config.search_target_time, self.config.search_max_time
+					)
+				else:
+					move, _ = self.board.solve(self.config.search_depth)
+			except CheckmateException:
+				_log.info("Gambit is in Checkmate!")
+				return
+			except StalemateException:
+				_log.info("Stalemate! No valid moves remaining.")
+				return
 
 		if self.viewer:
 			# If we are using the viewer, we don't need to send
@@ -307,4 +339,8 @@ def run_server(configfile: str, viewer: int | None = None, stockfish: bool = Fal
 	_log.info("Running Gambit Solver server")
 	config = GambitConfig(configfile)
 	server = GambitServer(config, viewer, stockfish)
-	server.run()
+	try:
+		server.run()
+	finally:
+		if server.use_stockfish:
+			server.stockfish.send_quit_command()

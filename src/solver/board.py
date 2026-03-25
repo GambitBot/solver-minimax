@@ -980,8 +980,8 @@ class Board:
 		new_board.__reversed = self.__reversed
 		new_board.__difficulty = self.__difficulty
 		new_board.__initialized = self.__initialized
-		new_board.__castle_white = self.__castle_white
-		new_board.__castle_black = self.__castle_black
+		new_board.__castle_white = self.__castle_white.copy()
+		new_board.__castle_black = self.__castle_black.copy()
 
 		# Apply the move
 		new_board.apply_move(move)
@@ -1033,6 +1033,10 @@ class Board:
 	def set_gambit_as_player(self) -> None:
 		"""Sets Gambit as the active player."""
 		self.__active_move = self.get_gambit_colour()
+
+	def set_human_as_player(self) -> None:
+		"""Sets the human as the active player."""
+		self.__active_move = self.get_gambit_colour().opponent()
 
 	def solve(
 		self, target_depth: int, target_time: float | None = None, max_time: float | None = None
@@ -1497,6 +1501,69 @@ class Board:
 		except Exception:
 			# If we didn't find the king, raise an exception
 			raise NoKingException
+
+	def get_move_from_stockfish(self, move_str: str) -> ChessMove:
+		"""Returns a ChessMove object from a Stockfish move string.
+
+		Parameters
+		----------
+		move_str : str
+			Stockfish move string.
+
+		Returns
+		-------
+		ChessMove
+			Chess Move object.
+		"""
+		start_idx = Board.idx_from_square(move_str[0:2])
+		end_idx = Board.idx_from_square(move_str[2:4])
+		if len(move_str) > 4:
+			promotion_fen = move_str[4]
+		else:
+			promotion_fen = None
+
+		# Get the piece type
+		piece = self.__board[start_idx]
+
+		# If the promotion FEN is not none, get a promotion
+		if promotion_fen is not None:
+			promotion = ChessPiece.decode_piece(ChessPiece.from_FEN(promotion_fen))[1]
+		else:
+			promotion = None
+
+		# Check for castling
+		castle = None
+		if ChessPiece.decode_piece(self.__board[start_idx])[1] == PieceType.KING:
+			# If the king moved two tiles, handle it as a castling operation
+			if abs(end_idx - start_idx) > 1:
+				castling_indices = self.get_valid_castling_idx(self.get_gambit_colour())
+				if end_idx > start_idx:
+					# Search for castling indices above the king index
+					for c in castling_indices:
+						if c > start_idx:
+							castle = c
+							break
+				else:
+					# Search for castling indices below the king index
+					for c in castling_indices:
+						if c < start_idx:
+							castle = c
+							break
+
+		# Check for captures
+		# Suppress capture operations when castling is detected
+		if castle is None and ChessPiece.is_piece(self.__board[end_idx]):
+			capture = end_idx
+		else:
+			capture = None
+
+		# Check for en passant
+		if end_idx == self.__enpassant:
+			enpassant = True
+		else:
+			enpassant = False
+
+		return ChessMove(piece, start_idx, end_idx, promotion=promotion, capture=capture, enpassant=enpassant, castle=castle)
 
 	@staticmethod
 	def idx_from_rank_and_file(rank: int, file: int) -> int:

@@ -29,6 +29,8 @@ def benchmark() -> None:
 	for m in moves:
 		print(f"    {m}")
 
+	m = b.get_move_from_stockfish("e1g1")
+
 	search_depth = 4
 	start_time = time.time()
 	print(f"Selecting an optimal move with depth {search_depth}")
