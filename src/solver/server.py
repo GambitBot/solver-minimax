@@ -339,6 +339,11 @@ def run_server(configfile: str, viewer: int | None = None, stockfish: bool = Fal
 	_log.info("Running Gambit Solver server")
 	config = GambitConfig(configfile)
 	server = GambitServer(config, viewer, stockfish)
+	if stockfish:
+		_log.info("Using Stockfish chess engine")
+	else:
+		_log.info("Using Gambit chess engine")
+
 	try:
 		server.run()
 	finally:
