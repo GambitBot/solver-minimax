@@ -898,7 +898,7 @@ class Board:
 			match piece_type:
 				case PieceType.KING:
 					# If the king moved two tiles, handle it as a castling operation
-					if abs(end_idx - start_idx) > 1:
+					if abs(end_idx - start_idx) == 1:
 						castling_indices = self.get_valid_castling_idx(self.__active_move)
 						rook_idx = None
 						if end_idx > start_idx:
@@ -1550,7 +1550,7 @@ class Board:
 		castle = None
 		if ChessPiece.decode_piece(self.__board[start_idx])[1] == PieceType.KING:
 			# If the king moved two tiles, handle it as a castling operation
-			if abs(end_idx - start_idx) > 1:
+			if abs(end_idx - start_idx) == 2:
 				castling_indices = self.get_valid_castling_idx(self.get_gambit_colour())
 				if end_idx > start_idx:
 					# Search for castling indices above the king index
