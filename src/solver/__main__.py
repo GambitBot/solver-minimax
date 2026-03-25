@@ -17,6 +17,7 @@ class ArgNamespace(argparse.Namespace):
 	configfile: str | None
 	viewer: bool
 	viewer_port: int
+	stockfish: bool
 
 
 def main() -> None:
@@ -31,6 +32,7 @@ def main() -> None:
 	parser.add_argument(
 		"--viewer-port", action="store", type=int, dest="viewer_port", help="Board viewer port", default=8084
 	)
+	parser.add_argument("--stockfish", action="store_true", dest="stockfish", help="Use Stockfish")
 	args = parser.parse_args(namespace=ArgNamespace())
 
 	if args.server:
@@ -38,9 +40,9 @@ def main() -> None:
 		if args.configfile is not None:
 			if args.viewer:
 				_log.info(f"Using Board viewer on port: {args.viewer_port}")
-				run_server(args.configfile, args.viewer_port)
+				run_server(args.configfile, args.viewer_port, stockfish=args.stockfish)
 			else:
-				run_server(args.configfile)
+				run_server(args.configfile, stockfish=args.stockfish)
 		else:
 			_log.error("Server requires a configuration file to run!")
 	else:
