@@ -17,6 +17,7 @@ from .boardmaps import (
 )
 from .exceptions import CheckmateException, NoKingException, StalemateException
 from .piece import ChessPiece, PieceColour, PieceType
+from .utils import invert_stockfish_move
 
 INF = 10**9
 DEFAULT_PIECETYPE_WEIGHTS = {
@@ -1432,6 +1433,16 @@ class Board:
 		"""
 		return self.__initialized
 
+	def is_reversed(self) -> bool:
+		"""Checks if the board is reversed.
+
+		Returns
+		-------
+		bool
+			Board is reversed
+		"""
+		return self.__reversed
+
 	def get_active_move(self) -> PieceColour:
 		"""Returns the active player.
 
@@ -1515,6 +1526,10 @@ class Board:
 		ChessMove
 			Chess Move object.
 		"""
+		# If the board is reversed, invert the stockfish move
+		if self.__reversed:
+			move_str = invert_stockfish_move(move_str)
+
 		start_idx = Board.idx_from_square(move_str[0:2])
 		end_idx = Board.idx_from_square(move_str[2:4])
 		if len(move_str) > 4:

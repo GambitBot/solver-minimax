@@ -12,6 +12,7 @@ from solver.exceptions import CheckmateException, StalemateException
 from .board import Board
 from .client import GambitClient
 from .config import GambitConfig
+from .utils import invert_fen
 
 _log = logging.getLogger(__name__)
 
@@ -132,7 +133,10 @@ class GambitServer:
 		self.board.set_gambit_as_player()
 		if self.use_stockfish:
 			# Send stockfish the new board state
-			self.stockfish.set_fen_position(self.board.to_fen())
+			if self.board.is_reversed():
+				self.stockfish.set_fen_position(invert_fen(self.board.to_fen()))
+			else:
+				self.stockfish.set_fen_position(self.board.to_fen())
 			# Perform the move search
 			if self.config.search_target_time is not None:
 				stockfish_move = self.stockfish.get_best_move_time(int(self.config.search_target_time * 1000))
@@ -228,7 +232,10 @@ class GambitServer:
 		self.board.set_gambit_as_player()
 		if self.use_stockfish:
 			# Send stockfish the new board state
-			self.stockfish.set_fen_position(self.board.to_fen())
+			if self.board.is_reversed():
+				self.stockfish.set_fen_position(invert_fen(self.board.to_fen()))
+			else:
+				self.stockfish.set_fen_position(self.board.to_fen())
 			# Perform the move search
 			if self.config.search_target_time is not None:
 				stockfish_move = self.stockfish.get_best_move_time(int(self.config.search_target_time * 1000))
