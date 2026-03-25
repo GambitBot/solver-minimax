@@ -5,7 +5,7 @@ import selectors
 import socket
 from typing import Callable
 
-from stockfish import Stockfish
+from stockfish import Stockfish, StockfishException
 
 from solver.exceptions import CheckmateException, StalemateException
 
@@ -47,11 +47,12 @@ class GambitServer:
 			self.viewer = True
 		# Stockfish
 		self.use_stockfish = stockfish
-		if stockfish:
-			assert config.stockfish_path is not None
-			self.stockfish = Stockfish(
-				path=config.stockfish_path, parameters={"Threads": 6, "Hash": 2048, "UCI_Chess960": True}
-			)
+		self.stockfish_path = config.stockfish_path
+
+	def start_stockfish(self) -> None:
+		"""Starts the stockfish process"""
+		assert self.stockfish_path is not None
+		self.stockfish = Stockfish(path=self.stockfish_path, parameters={"Threads": 6, "Hash": 2048, "UCI_Chess960": True})
 
 	def __socket_accept(self, sock: socket.socket) -> None:
 		assert self.__selector is not None  # This makes the type-checker happy
@@ -322,6 +323,10 @@ class GambitServer:
 		# Register the socket
 		self.__selector.register(self.__socket, selectors.EVENT_READ, self.__socket_accept)
 
+		# Start the stockfish binary
+		if self.use_stockfish:
+			self.start_stockfish()
+
 		# Run the main loop
 		# TODO: Add a signal handler here to stop everything gracefully
 		try:
@@ -332,6 +337,9 @@ class GambitServer:
 					callback(key.fileobj)
 		except KeyboardInterrupt:
 			_log.info("Caught keyboard interrupt. Exiting")
+		except StockfishException:
+			if self.use_stockfish:
+				self.start_stockfish()
 		finally:
 			# Close all of the connections
 			for c in self.__connections:
