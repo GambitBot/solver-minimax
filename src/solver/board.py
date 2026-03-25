@@ -1011,7 +1011,16 @@ class Board:
 			captureType = ChessPiece.to_FEN(self.__board[move.capture]).casefold()
 			captureSource = Board.idx_to_square(move.capture)
 			command += f"{captureType}{captureSource}xx,"
-		elif move.castle is not None:
+
+		# Get the piece type being moved
+		pieceType = ChessPiece.to_FEN(move.piece).casefold()
+		# Get the squares for the move
+		squareFrom = Board.idx_to_square(move.idx_from)
+		squareTo = Board.idx_to_square(move.idx_to)
+		command += f"{pieceType}{squareFrom}{squareTo}"
+
+		# Check castling
+		if move.castle is not None:
 			# If the move is a castling move, we need to move the rook as well
 			# as the king.
 			# TODO: Check for move conflicts for Chess960
@@ -1021,13 +1030,6 @@ class Board:
 			castleFrom = Board.idx_to_square(move.castle)
 			castleTo = Board.idx_to_square(castleTargetIdx)
 			command += f"{castleType}{castleFrom}{castleTo},"
-
-		# Get the piece type being moved
-		pieceType = ChessPiece.to_FEN(move.piece).casefold()
-		# Get the squares for the move
-		squareFrom = Board.idx_to_square(move.idx_from)
-		squareTo = Board.idx_to_square(move.idx_to)
-		command += f"{pieceType}{squareFrom}{squareTo}"
 
 		return command
 
