@@ -9,7 +9,7 @@ from stockfish import Stockfish, StockfishException
 
 from solver.exceptions import CheckmateException, StalemateException
 
-from .board import Board
+from .board import Board, ChessMove
 from .client import GambitClient
 from .config import GambitConfig
 from .utils import invert_fen
@@ -90,6 +90,28 @@ class GambitServer:
 				del self.__buffers[conn]
 				conn.close()
 
+	def __stockfish_move(self) -> ChessMove | None:
+		# Send stockfish the new board state
+		if self.board.is_reversed():
+			self.stockfish.set_fen_position(invert_fen(self.board.to_fen()))
+		else:
+			self.stockfish.set_fen_position(self.board.to_fen())
+		# Perform the move search
+		try:
+			if self.config.search_target_time is not None:
+				stockfish_move = self.stockfish.get_best_move_time(int(self.config.search_target_time * 1000))
+			else:
+				stockfish_move = self.stockfish.get_best_move()
+		except StockfishException:
+			self.start_stockfish()
+			stockfish_move = None
+		if stockfish_move is not None:
+			_log.info(f"Received move from Stockfish: {stockfish_move}")
+			return self.board.get_move_from_stockfish(stockfish_move)
+		else:
+			_log.info("Stockfish return no moves.")
+			return None
+
 	def __handle_command(self, commandstr: str) -> None:
 		_log.info(f"Executing command: {commandstr}")
 		try:
@@ -133,19 +155,8 @@ class GambitServer:
 		# Set Gambit as the active player before solving
 		self.board.set_gambit_as_player()
 		if self.use_stockfish:
-			# Send stockfish the new board state
-			if self.board.is_reversed():
-				self.stockfish.set_fen_position(invert_fen(self.board.to_fen()))
-			else:
-				self.stockfish.set_fen_position(self.board.to_fen())
-			# Perform the move search
-			if self.config.search_target_time is not None:
-				stockfish_move = self.stockfish.get_best_move_time(int(self.config.search_target_time * 1000))
-			else:
-				stockfish_move = self.stockfish.get_best_move()
-			if stockfish_move is not None:
-				move = self.board.get_move_from_stockfish(stockfish_move)
-			else:
+			move = self.__stockfish_move()
+			if move is None:
 				_log.info("Gambit is in Checkmate!")
 				return
 		else:
@@ -232,19 +243,8 @@ class GambitServer:
 		# Set Gambit as the active player before solving
 		self.board.set_gambit_as_player()
 		if self.use_stockfish:
-			# Send stockfish the new board state
-			if self.board.is_reversed():
-				self.stockfish.set_fen_position(invert_fen(self.board.to_fen()))
-			else:
-				self.stockfish.set_fen_position(self.board.to_fen())
-			# Perform the move search
-			if self.config.search_target_time is not None:
-				stockfish_move = self.stockfish.get_best_move_time(int(self.config.search_target_time * 1000))
-			else:
-				stockfish_move = self.stockfish.get_best_move()
-			if stockfish_move is not None:
-				move = self.board.get_move_from_stockfish(stockfish_move)
-			else:
+			move = self.__stockfish_move()
+			if move is None:
 				_log.info("Gambit is in Checkmate!")
 				return
 		else:
