@@ -52,7 +52,7 @@ class GambitServer:
 	def start_stockfish(self) -> None:
 		"""Starts the stockfish process"""
 		assert self.stockfish_path is not None
-		self.stockfish = Stockfish(path=self.stockfish_path, parameters={"Threads": 6, "Hash": 2048, "UCI_Chess960": True})
+		self.stockfish = Stockfish(path=self.stockfish_path, parameters={"Threads": 6, "Hash": 2048, "UCI_Chess960": False})
 
 	def __socket_accept(self, sock: socket.socket) -> None:
 		assert self.__selector is not None  # This makes the type-checker happy
