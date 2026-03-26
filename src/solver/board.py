@@ -747,13 +747,13 @@ class Board:
 								if self.__reversed:
 									# If White is the active player, add 70
 									if self.__active_move == PieceColour.WHITE:
-										king_target_idx += 70
+										king_target_idx += 0x70
 								else:
 									# If the board is not reversed, add 1
 									king_target_idx += 1
 									# If Black is the active player, add 70
 									if self.__active_move == PieceColour.BLACK:
-										king_target_idx += 71
+										king_target_idx += 0x70
 								# If the target is a higher index than the King, add 4
 								if c > i:
 									king_target_idx += 4
