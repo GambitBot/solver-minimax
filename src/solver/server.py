@@ -232,6 +232,7 @@ class GambitServer:
 		print(f"Board initialized: {self.board.is_initialized()}")
 		print(f"Active player: {repr(self.board.get_active_move())}")
 		print(f"Gambit playing as: {repr(self.board.get_gambit_colour())}")
+		print(f"Board fen: [{self.board.to_fen()}]")
 
 	def __command_move(self, data: str) -> None:
 		_log.info(f"Applying manual move(s): {data}")
