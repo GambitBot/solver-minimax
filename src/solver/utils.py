@@ -6,6 +6,10 @@ def invert_fen(input_fen: str) -> str:
 	fen_parts = input_fen.split(" ")
 	board_fen_parts = fen_parts[0].split("/")
 	board_fen_parts.reverse()
+	for i in range(len(board_fen_parts)):
+		row = list(board_fen_parts[i])
+		row.reverse()
+		board_fen_parts[i] = "".join(row)
 	fen_parts[0] = "/".join(board_fen_parts)
 	return " ".join(fen_parts)
 
