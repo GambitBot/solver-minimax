@@ -28,6 +28,8 @@ def invert_stockfish_move(move: str) -> str:
 		Inverted Stockfish move string
 	"""
 	move_list = list(move)
+	move_list[0] = chr(104 - (ord(move_list[0]) - 97))
 	move_list[1] = str(9 - int(move_list[1]))
+	move_list[2] = chr(104 - (ord(move_list[2]) - 97))
 	move_list[3] = str(9 - int(move_list[3]))
 	return "".join(move_list)
