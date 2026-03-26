@@ -93,8 +93,10 @@ class GambitServer:
 	def __stockfish_move(self) -> ChessMove | None:
 		# Send stockfish the new board state
 		if self.board.is_reversed():
+			_log.info(f"Sending FEN to Stockfish: {invert_fen(self.board.to_fen())}")
 			self.stockfish.set_fen_position(invert_fen(self.board.to_fen()))
 		else:
+			_log.info(f"Sending FEN to Stockfish: {self.board.to_fen()}")
 			self.stockfish.set_fen_position(self.board.to_fen())
 		# Perform the move search
 		try:
