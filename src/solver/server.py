@@ -141,6 +141,8 @@ class GambitServer:
 					self.__command_move(data)
 				case "init":
 					self.__command_init(data)
+				case "sf_difficulty":
+					self.__command_stockfish_difficulty(data)
 				case _:
 					_log.warning(f"Received invalid command: {command}")
 		except Exception as e:
@@ -308,6 +310,21 @@ class GambitServer:
 		else:
 			# If Gambit is playing as black, set up a fresh board then wait for the player to move.
 			self.__command_update(DEFAULT_FEN_BLACK)
+
+	def __command_stockfish_difficulty(self, data: str) -> None:
+		# Input validation
+		try:
+			difficulty = int(data)
+		except ValueError:
+			_log.error(f"Invalid stockfish difficulty provided: {data}")
+			return
+
+		if difficulty < 0 or difficulty > 20:
+			_log.error(f"Stockfish difficulties must be in the range [0-20]. Received: {difficulty}")
+			return
+
+		self.stockfish.update_engine_parameters({"Skill Level": difficulty})
+		_log.info(f"Set Stockfish difficulty to: {difficulty}")
 
 	def run(self) -> None:
 		"""Runs the Gambit Solver IPC server.
